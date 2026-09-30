@@ -1,0 +1,911 @@
+import { expect, test } from '#test';
+import { dispatchPointer } from '../support/input/pointer.js';
+
+test.describe('Slider', () => {
+    test.beforeEach(async ({ page }) => {
+        await page.evaluate((_) => {
+            document.body.innerHTML = '<button id="outside">Outside</button>' +
+                '<div id="host" style="width:360px;margin:40px">' +
+                '<label for="slider">Amount</label><input id="slider" value="3"><input id="slider2" value="7"></div>';
+        });
+    });
+
+    test.describe('#init', () => {
+        for (const { name, init } of [
+            { name: 'class', init: () => UI.Slider.init(document.querySelector('#slider')) },
+            { name: 'QuerySet', init: () => $('#slider').slider() },
+        ]) {
+            test(`creates a Slider (${name})`, async ({ page }) => {
+                const instance = await page.evaluateHandle(init);
+
+                expect(await instance.evaluate((value) => value instanceof UI.Slider)).toBe(true);
+                expect(await instance.evaluate((value) => $.getData('#slider', 'slider') === value)).toBe(true);
+                await expect(page.getByRole('slider')).toHaveCount(1);
+                await expect(page.getByRole('slider')).toHaveAttribute('aria-valuenow', '3');
+            });
+        }
+
+        test('creates multiple Sliders (QuerySet)', async ({ page }) => {
+            await page.evaluate((_) => $('input').slider());
+
+            await expect(page.getByRole('slider')).toHaveCount(2);
+            expect(await page.evaluate((_) => $.getData('#slider2', 'slider') instanceof UI.Slider)).toBe(true);
+        });
+
+        test('returns the first Slider (QuerySet)', async ({ page }) => {
+            expect(await page.evaluate((_) => $('input').slider() === $.getData('#slider', 'slider'))).toBe(true);
+        });
+
+        test('reuses an existing Slider', async ({ page }) => {
+            expect(await page.evaluate((_) => {
+                const node = document.querySelector('#slider');
+                const first = UI.Slider.init(node);
+                return UI.Slider.init(node, { range: true }) === first;
+            })).toBe(true);
+            await expect(page.getByRole('slider')).toHaveCount(1);
+        });
+
+        test('exposes frozen options', async ({ page }) => {
+            const instance = await page.evaluateHandle((_) => UI.Slider.init(document.querySelector('#slider')));
+
+            expect(await instance.evaluate((value) => Object.isFrozen(value.options))).toBe(true);
+            expect(await instance.evaluate((value) => value.node === document.querySelector('#slider'))).toBe(true);
+        });
+
+        test('merges defaults, data attributes, and explicit options in order', async ({ page }) => {
+            await page.evaluate((_) => {
+                const node = document.querySelector('#slider');
+                node.dataset.uiMin = '2';
+                node.dataset.uiMax = '8';
+                UI.Slider.init(node, { max: 12 });
+            });
+
+            await expect(page.getByRole('slider')).toHaveAttribute('aria-valuemin', '2');
+            await expect(page.getByRole('slider')).toHaveAttribute('aria-valuemax', '12');
+        });
+
+        test('rejects non-input nodes without registering an instance', async ({ page }) => {
+            expect(await page.evaluate((_) => {
+                try {
+                    UI.Slider.init(document.querySelector('#outside'));
+                } catch (error) {
+                    return error.message;
+                }
+            })).toBe('Slider must be created on an input element.');
+            expect(await page.evaluate((_) => $.hasData('#outside', 'slider'))).toBe(false);
+        });
+
+        test('restores the input if a formatter fails during initialization', async ({ page }) => {
+            expect(await page.evaluate((_) => {
+                try {
+                    UI.Slider.init(document.querySelector('#slider'), {
+                        valueText: () => {
+                            throw new Error('Invalid formatter');
+                        },
+                    });
+                } catch (error) {
+                    return error.message;
+                }
+            })).toBe('Invalid formatter');
+            await expect(page.getByRole('slider')).toHaveCount(0);
+            await expect(page.locator('#slider')).not.toHaveClass(/visually-hidden/);
+            expect(await page.evaluate((_) => $.hasData('#slider', 'slider'))).toBe(false);
+        });
+    });
+
+    test.describe('#dispose', () => {
+        for (const { name, dispose } of [
+            { name: 'class', dispose: (instance) => instance.dispose() },
+            { name: 'QuerySet', dispose: () => $('#slider').slider('dispose') },
+        ]) {
+            test(`restores the original input (${name})`, async ({ page }) => {
+                const instance = await page.evaluateHandle((_) => {
+                    const node = document.querySelector('#slider');
+                    node.className = 'existing';
+                    node.tabIndex = 4;
+                    const instance = UI.Slider.init(node);
+                    node.classList.add('runtime');
+                    return instance;
+                });
+                await page.evaluate(dispose, instance);
+
+                expect(await instance.evaluate((value) => value.node)).toBeNull();
+                expect(await instance.evaluate((value) => value.options)).toBeNull();
+                expect(await page.evaluate((_) => $.hasData('#slider', 'slider'))).toBe(false);
+                await expect(page.getByRole('slider')).toHaveCount(0);
+                await expect(page.locator('#slider')).toHaveClass('existing runtime');
+                await expect(page.locator('#slider')).toHaveAttribute('tabindex', '4');
+            });
+        }
+
+        test('restores an existing hidden class and absent tabindex', async ({ page }) => {
+            await page.evaluate((_) => {
+                const node = document.querySelector('#slider');
+                node.classList.add('visually-hidden');
+                const instance = UI.Slider.init(node);
+                node.classList.remove('visually-hidden');
+                instance.dispose();
+                instance.dispose();
+            });
+
+            await expect(page.locator('#slider')).toHaveClass('visually-hidden');
+            await expect(page.locator('#slider')).not.toHaveAttribute('tabindex');
+        });
+
+        test('disposes when fQuery removes the original input', async ({ page }) => {
+            await page.evaluate((_) => {
+                UI.Slider.init(document.querySelector('#slider'), { tooltip: 'always' });
+                $.remove('#slider');
+            });
+
+            await expect(page.getByRole('slider')).toHaveCount(0);
+            await expect(page.getByRole('tooltip')).toHaveCount(0);
+        });
+
+        test('allows reinitialization after disposal', async ({ page }) => {
+            await page.evaluate((_) => {
+                const node = document.querySelector('#slider');
+                UI.Slider.init(node).dispose();
+                UI.Slider.init(node).setValue(8);
+            });
+
+            await expect(page.getByRole('slider')).toHaveCount(1);
+            await expect(page.getByRole('slider')).toHaveAttribute('aria-valuenow', '8');
+        });
+
+        test('preserves other instances and consumer change listeners', async ({ page }) => {
+            await page.evaluate((_) => {
+                $('input').slider();
+                window.changes = 0;
+                $.addEvent('#slider', 'change.ui.slider', (_) => window.changes++);
+                $('#slider').slider('dispose');
+                $.triggerEvent('#slider', 'change.ui.slider');
+                $('#slider2').slider('setValue', 9);
+            });
+
+            expect(await page.evaluate((_) => window.changes)).toBe(1);
+            await expect(page.getByRole('slider')).toHaveCount(1);
+            await expect(page.getByRole('slider')).toHaveAttribute('aria-valuenow', '9');
+        });
+    });
+
+    for (const method of ['disable', 'enable']) {
+        test.describe(`#${method}`, () => {
+            for (const { name, update } of [
+                { name: 'class', update: (method) => $.getData('#slider', 'slider')[method]() },
+                { name: 'QuerySet', update: (method) => $('#slider').slider(method) },
+            ]) {
+                test(`${method}s the input and handles (${name})`, async ({ page }) => {
+                    await page.evaluate((method) => {
+                        const instance = UI.Slider.init(document.querySelector('#slider'), { range: true });
+                        if (method === 'enable') {
+                            instance.disable();
+                        }
+                    }, method);
+                    await page.evaluate(update, method);
+
+                    const enabled = method === 'enable';
+                    await expect(page.locator('#slider')).toBeEnabled({ enabled });
+                    const handles = page.getByRole('slider');
+                    await expect(handles).toHaveCount(2);
+                    await expect(handles.nth(0)).toBeEnabled({ enabled });
+                    await expect(handles.nth(1)).toBeEnabled({ enabled });
+                });
+            }
+        });
+    }
+
+    test.describe('#getValue', () => {
+        for (const { name, getValue } of [
+            { name: 'class', getValue: () => $.getData('#slider', 'slider').getValue() },
+            { name: 'QuerySet', getValue: () => $('#slider').slider('getValue') },
+        ]) {
+            test(`gets a single value (${name})`, async ({ page }) => {
+                await page.evaluate((_) => UI.Slider.init(document.querySelector('#slider')));
+
+                expect(await page.evaluate(getValue)).toBe(3);
+            });
+
+            test(`gets a range (${name})`, async ({ page }) => {
+                await page.evaluate((_) => {
+                    document.querySelector('#slider').value = '2,8';
+                    UI.Slider.init(document.querySelector('#slider'), { range: true });
+                });
+
+                expect(await page.evaluate(getValue)).toEqual([2, 8]);
+            });
+        }
+
+        test('returns a copy of range values', async ({ page }) => {
+            expect(await page.evaluate((_) => {
+                const instance = UI.Slider.init(document.querySelector('#slider'), { range: true });
+                instance.setValue(2, 8);
+                instance.getValue()[0] = 100;
+                return instance.getValue();
+            })).toEqual([2, 8]);
+        });
+    });
+
+    test.describe('#setValue', () => {
+        for (const { name, setValue } of [
+            { name: 'class', setValue: () => $.getData('#slider', 'slider').setValue(7) },
+            { name: 'QuerySet', setValue: () => $('#slider').slider('setValue', 7) },
+        ]) {
+            test(`sets a single value (${name})`, async ({ page }) => {
+                await page.evaluate((_) => UI.Slider.init(document.querySelector('#slider')));
+                await page.evaluate(setValue);
+
+                await expect(page.locator('#slider')).toHaveValue('7');
+                await expect(page.getByRole('slider')).toHaveAttribute('aria-valuenow', '7');
+            });
+        }
+
+        for (const { name, setValue } of [
+            { name: 'class', setValue: () => $.getData('#slider', 'slider').setValue(9, 1) },
+            { name: 'QuerySet', setValue: () => $('#slider').slider('setValue', 9, 1) },
+        ]) {
+            test(`orders range endpoints (${name})`, async ({ page }) => {
+                await page.evaluate((_) => UI.Slider.init(document.querySelector('#slider'), { range: true }));
+                await page.evaluate(setValue);
+
+                await expect(page.locator('#slider')).toHaveValue('1,9');
+                await expect(page.getByRole('slider', { name: 'Amount start' })).toHaveAttribute('aria-valuenow', '1');
+                await expect(page.getByRole('slider', { name: 'Amount end' })).toHaveAttribute('aria-valuenow', '9');
+            });
+        }
+    });
+
+    test.describe('input attributes', () => {
+        test('inherits initial disabled state', async ({ page }) => {
+            await page.evaluate((_) => {
+                const node = document.querySelector('#slider');
+                node.disabled = true;
+                UI.Slider.init(node);
+            });
+
+            await expect(page.getByRole('slider')).toBeDisabled();
+            await expect(page.getByRole('slider')).toHaveAttribute('aria-disabled', 'true');
+        });
+
+        for (const { name, markup, expected } of [
+            { name: 'explicit label', markup: '<label for="slider">Volume</label><input id="slider">', expected: 'Volume' },
+            { name: 'wrapping label', markup: '<label>Volume<input id="slider"></label>', expected: 'Volume' },
+            { name: 'aria-label', markup: '<input id="slider" aria-label="Volume">', expected: 'Volume' },
+            { name: 'aria-labelledby', markup: '<span id="title">Volume</span><input id="slider" aria-labelledby="title">', expected: 'Volume' },
+            { name: 'no label', markup: '<input id="slider">', expected: 'Value' },
+        ]) {
+            test(`sets the accessible name from ${name}`, async ({ page }) => {
+                await page.evaluate((markup) => {
+                    document.querySelector('#host').innerHTML = markup;
+                    UI.Slider.init(document.querySelector('#slider'));
+                }, markup);
+
+                await expect(page.getByRole('slider')).toHaveAccessibleName(expected);
+            });
+        }
+
+        test('supports unusual input IDs without changing label IDs', async ({ page }) => {
+            await page.evaluate((_) => {
+                const node = document.querySelector('#slider');
+                node.id = 'amount"value';
+                document.querySelector('label').htmlFor = node.id;
+                UI.Slider.init(node);
+            });
+
+            await expect(page.getByRole('slider')).toHaveAccessibleName('Amount');
+            await expect(page.locator('label')).not.toHaveAttribute('id');
+        });
+
+        test('copies descriptions and invalid state to the handle', async ({ page }) => {
+            await page.evaluate((_) => {
+                const node = document.querySelector('#slider');
+                node.setAttribute('aria-describedby', 'help');
+                node.setAttribute('aria-invalid', 'true');
+                UI.Slider.init(node, { tooltip: false });
+            });
+
+            await expect(page.getByRole('slider')).toHaveAttribute('aria-describedby', 'help');
+            await expect(page.getByRole('slider')).toHaveAttribute('aria-invalid', 'true');
+        });
+    });
+
+    test.describe('events', () => {
+        test('emits change once per distinct normalized value', async ({ page }) => {
+            await page.evaluate((_) => {
+                const instance = UI.Slider.init(document.querySelector('#slider'));
+                window.changes = 0;
+                $.addEvent('#slider', 'change.ui.slider', (_) => window.changes++);
+                instance.setValue(5);
+                instance.setValue(5.1);
+                instance.setValue(6);
+            });
+
+            expect(await page.evaluate((_) => window.changes)).toBe(2);
+            await expect(page.locator('#slider')).toHaveValue('6');
+        });
+
+        for (const range of [false, true]) {
+            test(`emits drag events in order (range=${range})`, async ({ page }) => {
+                await page.evaluate((range) => {
+                    const node = document.querySelector('#slider');
+                    node.value = range ? '2,4' : '2';
+                    UI.Slider.init(node, { range, tooltip: false });
+                    window.events = [];
+                    for (const name of ['slide', 'sliding', 'change', 'slid']) {
+                        $.addEvent(node, `${name}.ui.slider`, (event) => {
+                            window.events.push(name);
+                            window.lastDetail = event.detail;
+                        });
+                    }
+                }, range);
+                const box = await page.locator('#host .progress.position-relative').boundingBox();
+                const y = box.y + box.height / 2;
+                await page.mouse.move(box.x + box.width * .5, y);
+                await page.mouse.down();
+                await page.mouse.move(box.x + box.width * .8, y);
+                await page.mouse.up();
+
+                expect(await page.evaluate((_) => window.events.join(','))).toBe('slide,sliding,change,slid');
+                if (range) {
+                    expect(await page.evaluate((_) => window.lastDetail.start)).toBe(2);
+                    expect(await page.evaluate((_) => window.lastDetail.end)).toBe(8);
+                } else {
+                    expect(await page.evaluate((_) => window.lastDetail)).toBe(8);
+                }
+            });
+        }
+
+        for (const event of ['slide', 'sliding', 'change', 'slid']) {
+            test(`allows disposal in a ${event} listener`, async ({ page }) => {
+                const errors = [];
+                page.on('pageerror', (error) => errors.push(error.message));
+                await page.evaluate((event) => {
+                    const instance = UI.Slider.init(document.querySelector('#slider'));
+                    $.addEvent('#slider', `${event}.ui.slider`, (_) => instance.dispose());
+                }, event);
+                const box = await page.locator('#host .progress.position-relative').boundingBox();
+                await page.mouse.move(box.x + box.width * .5, box.y + box.height / 2);
+                await page.mouse.down();
+                await page.mouse.move(box.x + box.width * .8, box.y + box.height / 2);
+                await page.mouse.up();
+
+                await expect(page.getByRole('slider')).toHaveCount(0);
+                await expect(page.getByRole('tooltip')).toHaveCount(0);
+                expect(errors).toHaveLength(0);
+            });
+        }
+    });
+
+    test.describe('user events', () => {
+        test.beforeEach(async ({ page }) => {
+            await page.evaluate((_) => UI.Slider.init(document.querySelector('#slider'), { tooltip: false }));
+        });
+
+        test.describe('click', () => {
+            test('sets the value and focuses the handle', async ({ page }) => {
+                const box = await page.locator('#host .progress.position-relative').boundingBox();
+                await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+
+                await expect(page.locator('#slider')).toHaveValue('5');
+                await expect(page.getByRole('slider')).toBeFocused();
+            });
+
+            test('ignores secondary mouse buttons', async ({ page }) => {
+                await page.locator('#host .progress.position-relative').click({ button: 'right' });
+
+                await expect(page.locator('#slider')).toHaveValue('3');
+            });
+        });
+
+        test.describe('keyboard', () => {
+            for (const { key, expected } of [
+                { key: 'ArrowRight', expected: '4' },
+                { key: 'ArrowUp', expected: '4' },
+                { key: 'ArrowLeft', expected: '2' },
+                { key: 'ArrowDown', expected: '2' },
+                { key: 'Home', expected: '0' },
+                { key: 'End', expected: '10' },
+                { key: 'a', expected: '3' },
+            ]) {
+                test(`handles ${key}`, async ({ page }) => {
+                    await page.getByRole('slider').press(key);
+
+                    await expect(page.locator('#slider')).toHaveValue(expected);
+                    await expect(page.getByRole('slider')).toHaveAttribute('aria-valuenow', expected);
+                });
+            }
+
+            test('ignores keyboard input while disabled', async ({ page }) => {
+                await page.evaluate((_) => {
+                    $('#slider').slider('disable');
+                    document.querySelector('[role="slider"]').dispatchEvent(new KeyboardEvent('keydown', { key: 'End', bubbles: true }));
+                });
+
+                await expect(page.locator('#slider')).toHaveValue('3');
+            });
+        });
+
+        test.describe('focus', () => {
+            test('redirects native input focus to the handle', async ({ page }) => {
+                await page.locator('#slider').focus();
+
+                await expect(page.getByRole('slider')).toBeFocused();
+            });
+
+            test('keeps the original input out of the tab order', async ({ page }) => {
+                await page.locator('#outside').focus();
+                await page.keyboard.press('Tab');
+                await expect(page.getByRole('slider')).toBeFocused();
+                await page.keyboard.press('Tab');
+                await expect(page.locator('#slider2')).toBeFocused();
+            });
+        });
+
+        test.describe('drag', () => {
+            test('previews values without committing until release', async ({ page }) => {
+                const box = await page.locator('#host .progress.position-relative').boundingBox();
+                const y = box.y + box.height / 2;
+                await page.mouse.move(box.x + box.width * .5, y);
+                await page.mouse.down();
+                await page.mouse.move(box.x + box.width * .8, y);
+
+                await expect(page.getByRole('slider')).toHaveAttribute('aria-valuenow', '8');
+                await expect(page.locator('#slider')).toHaveValue('3');
+                expect(await page.evaluate((_) => $('#slider').slider('getValue'))).toBe(8);
+                await page.mouse.up();
+                await expect(page.locator('#slider')).toHaveValue('8');
+            });
+
+            test('clamps movement outside the track', async ({ page }) => {
+                const box = await page.locator('#host .progress.position-relative').boundingBox();
+                const y = box.y + box.height / 2;
+                await page.mouse.move(box.x + box.width / 2, y);
+                await page.mouse.down();
+                await page.mouse.move(box.x - 20, y);
+                await expect(page.getByRole('slider')).toHaveAttribute('aria-valuenow', '0');
+                await page.mouse.move(box.x + box.width + 20, y);
+                await page.mouse.up();
+                await expect(page.locator('#slider')).toHaveValue('10');
+            });
+
+            test('uses touch release coordinates', async ({ page }) => {
+                expect(await page.evaluate(dispatchPointer, { type: 'pointerdown', fraction: .2 })).toBe(true);
+                await page.evaluate(dispatchPointer, { type: 'pointerup', fraction: .9 });
+
+                await expect(page.locator('#slider')).toHaveValue('9');
+            });
+
+            test('ignores additional pointers during a touch gesture', async ({ page }) => {
+                await page.evaluate(dispatchPointer, { type: 'pointerdown', fraction: .5 });
+                await page.evaluate(dispatchPointer, { type: 'pointerdown', id: 2, primary: false });
+                await page.evaluate(dispatchPointer, { type: 'pointermove', id: 2, fraction: .9 });
+                await page.evaluate(dispatchPointer, { type: 'pointerup', id: 2, fraction: .9 });
+                await expect(page.getByRole('slider')).toHaveAttribute('aria-valuenow', '5');
+                await page.evaluate(dispatchPointer, { type: 'pointerup', fraction: .5 });
+                await expect(page.locator('#slider')).toHaveValue('5');
+            });
+
+            for (const reason of ['pointercancel', 'blur', 'disable']) {
+                test(`restores the committed value after ${reason}`, async ({ page }) => {
+                    await page.evaluate(dispatchPointer, { type: 'pointerdown', fraction: .8 });
+                    await page.evaluate((reason) => {
+                        if (reason === 'disable') {
+                            $('#slider').slider('disable');
+                        } else {
+                            window.dispatchEvent(new PointerEvent(reason, { pointerId: 1 }));
+                        }
+                    }, reason);
+                    await page.evaluate(dispatchPointer, { type: 'pointermove', fraction: .1 });
+                    await page.evaluate(dispatchPointer, { type: 'pointerup', fraction: .1 });
+
+                    await expect(page.locator('#slider')).toHaveValue('3');
+                    await expect(page.getByRole('slider')).toHaveAttribute('aria-valuenow', '3');
+                });
+            }
+
+            test('preserves a programmatic commit when a gesture is canceled', async ({ page }) => {
+                await page.evaluate(dispatchPointer, { type: 'pointerdown', fraction: .8 });
+                await page.evaluate((_) => $('#slider').slider('setValue', 6));
+                await page.evaluate(dispatchPointer, { type: 'pointercancel' });
+
+                await expect(page.locator('#slider')).toHaveValue('6');
+                await expect(page.getByRole('slider')).toHaveAttribute('aria-valuenow', '6');
+            });
+        });
+    });
+
+    test.describe('min option', () => {
+        test('clamps values below the minimum', async ({ page }) => {
+            await page.evaluate((_) => UI.Slider.init(document.querySelector('#slider'), { min: 4 }).setValue(-1));
+
+            await expect(page.locator('#slider')).toHaveValue('4');
+            await expect(page.getByRole('slider')).toHaveAttribute('aria-valuemin', '4');
+        });
+
+        test('rejects bounds in descending order', async ({ page }) => {
+            expect(await page.evaluate((_) => {
+                try {
+                    UI.Slider.init(document.querySelector('#slider'), { min: 20 });
+                } catch (error) {
+                    return error instanceof RangeError;
+                }
+            })).toBe(true);
+            expect(await page.evaluate((_) => $.hasData('#slider', 'slider'))).toBe(false);
+            await expect(page.getByRole('slider')).toHaveCount(0);
+        });
+    });
+
+    test.describe('max option', () => {
+        test('keeps the maximum reachable when the step does not divide the interval', async ({ page }) => {
+            await page.evaluate((_) => UI.Slider.init(document.querySelector('#slider'), { max: 10, step: 6 }).setValue(20));
+
+            await expect(page.locator('#slider')).toHaveValue('10');
+            await expect(page.getByRole('slider')).toHaveAttribute('aria-valuemax', '10');
+        });
+
+        test('renders equal bounds without invalid geometry', async ({ page }) => {
+            await page.evaluate((_) => UI.Slider.init(document.querySelector('#slider'), { min: 5, max: 5 }));
+
+            await expect(page.locator('#slider')).toHaveValue('5');
+            await expect(page.getByRole('slider')).toHaveCSS('left', '0px');
+            await page.getByRole('slider').press('End');
+            await expect(page.locator('#slider')).toHaveValue('5');
+        });
+
+        test('rejects non-finite bounds', async ({ page }) => {
+            expect(await page.evaluate((_) => {
+                try {
+                    UI.Slider.init(document.querySelector('#slider'), { max: Infinity });
+                } catch (error) {
+                    return error instanceof RangeError;
+                }
+            })).toBe(true);
+            await expect(page.getByRole('slider')).toHaveCount(0);
+        });
+    });
+
+    test.describe('defaultValue option', () => {
+        for (const { name, value } of [
+            { name: 'empty', value: '' },
+            { name: 'invalid text', value: 'invalid' },
+            { name: 'null', value: null },
+            { name: 'boolean', value: false },
+            { name: 'infinity', value: Infinity },
+        ]) {
+            test(`uses the fallback for ${name}`, async ({ page }) => {
+                await page.evaluate((value) => {
+                    UI.Slider.init(document.querySelector('#slider'), { defaultValue: 4 }).setValue(value);
+                }, value);
+
+                await expect(page.locator('#slider')).toHaveValue('4');
+                await expect(page.getByRole('slider')).toHaveAttribute('aria-valuenow', '4');
+            });
+        }
+
+        test('falls back to the minimum when defaultValue is invalid', async ({ page }) => {
+            await page.evaluate((_) => {
+                document.querySelector('#slider').value = '';
+                UI.Slider.init(document.querySelector('#slider'), { min: 2, defaultValue: 'invalid' });
+            });
+
+            await expect(page.locator('#slider')).toHaveValue('2');
+        });
+    });
+
+    test.describe('step option', () => {
+        test('rounds decimal steps relative to the minimum', async ({ page }) => {
+            await page.evaluate((_) => UI.Slider.init(document.querySelector('#slider'), { min: .1, step: .2 }).setValue(.24));
+
+            await expect(page.locator('#slider')).toHaveValue('0.3');
+            await page.getByRole('slider').press('ArrowRight');
+            await expect(page.locator('#slider')).toHaveValue('0.5');
+        });
+
+        test('clamps the result after rounding', async ({ page }) => {
+            await page.evaluate((_) => UI.Slider.init(document.querySelector('#slider'), { step: 6 }).setValue(9.5));
+
+            await expect(page.locator('#slider')).toHaveValue('10');
+        });
+
+        for (const step of [0, -1]) {
+            test(`rejects step=${step}`, async ({ page }) => {
+                expect(await page.evaluate((step) => {
+                    try {
+                        UI.Slider.init(document.querySelector('#slider'), { step });
+                    } catch (error) {
+                        return error instanceof RangeError;
+                    }
+                }, step)).toBe(true);
+                await expect(page.getByRole('slider')).toHaveCount(0);
+            });
+        }
+    });
+
+    test.describe('range option', () => {
+        test('renders two separately named handles', async ({ page }) => {
+            await page.evaluate((_) => {
+                document.querySelector('#slider').value = '2,8';
+                UI.Slider.init(document.querySelector('#slider'), { range: true });
+            });
+
+            await expect(page.getByRole('slider')).toHaveCount(2);
+            await expect(page.getByRole('slider', { name: 'Amount start' })).toHaveAttribute('aria-valuenow', '2');
+            await expect(page.getByRole('slider', { name: 'Amount end' })).toHaveAttribute('aria-valuenow', '8');
+        });
+
+        test('uses defaultValue for a missing endpoint', async ({ page }) => {
+            await page.evaluate((_) => UI.Slider.init(document.querySelector('#slider'), { range: true, defaultValue: 1 }).setValue(8));
+
+            await expect(page.locator('#slider')).toHaveValue('1,8');
+        });
+
+        for (const { name, key, expected, focused } of [
+            { name: 'start', key: 'End', expected: '2,10', focused: 'Amount end' },
+            { name: 'end', key: 'Home', expected: '0,8', focused: 'Amount start' },
+        ]) {
+            test(`hands focus to the other handle when ${name} crosses`, async ({ page }) => {
+                await page.evaluate((_) => UI.Slider.init(document.querySelector('#slider'), { range: true }).setValue(2, 8));
+                await page.getByRole('slider', { name: `Amount ${name}` }).press(key);
+
+                await expect(page.locator('#slider')).toHaveValue(expected);
+                await expect(page.getByRole('slider', { name: focused })).toBeFocused();
+            });
+        }
+
+        test('selects the closest handle when clicking the track', async ({ page }) => {
+            await page.evaluate((_) => UI.Slider.init(document.querySelector('#slider'), { range: true, tooltip: false }).setValue(2, 8));
+            const box = await page.locator('#host .progress.position-relative').boundingBox();
+            await page.mouse.click(box.x + box.width * .7, box.y + box.height / 2);
+
+            await expect(page.locator('#slider')).toHaveValue('2,7');
+            await expect(page.getByRole('slider', { name: 'Amount end' })).toBeFocused();
+        });
+    });
+
+    test.describe('rangeSeparator option', () => {
+        test('reads and serializes the configured separator', async ({ page }) => {
+            await page.evaluate((_) => {
+                document.querySelector('#slider').value = '2:8';
+                UI.Slider.init(document.querySelector('#slider'), { range: true, rangeSeparator: ':' });
+            });
+            await page.getByRole('slider', { name: 'Amount end' }).press('ArrowLeft');
+
+            await expect(page.locator('#slider')).toHaveValue('2:7');
+        });
+
+        test('rejects an empty separator', async ({ page }) => {
+            expect(await page.evaluate((_) => {
+                try {
+                    UI.Slider.init(document.querySelector('#slider'), { rangeSeparator: '' });
+                } catch (error) {
+                    return error instanceof RangeError;
+                }
+            })).toBe(true);
+        });
+    });
+
+    test.describe('orientation option', () => {
+        for (const orientation of ['horizontal', 'vertical']) {
+            test(`exposes ${orientation} orientation`, async ({ page }) => {
+                await page.evaluate((orientation) => UI.Slider.init(document.querySelector('#slider'), { orientation }), orientation);
+
+                await expect(page.getByRole('slider')).toHaveAttribute('aria-orientation', orientation);
+            });
+        }
+
+        test('maps vertical pointer movement to values', async ({ page }) => {
+            await page.evaluate((_) => UI.Slider.init(document.querySelector('#slider'), { orientation: 'vertical', tooltip: false }));
+            const box = await page.locator('#host .progress.position-relative').boundingBox();
+            await page.mouse.click(box.x + box.width / 2, box.y + box.height * .8);
+
+            await expect(page.locator('#slider')).toHaveValue('8');
+        });
+    });
+
+    test.describe('reversed option', () => {
+        test('reverses horizontal clicks and arrow keys', async ({ page }) => {
+            await page.evaluate((_) => UI.Slider.init(document.querySelector('#slider'), { reversed: true, tooltip: false }));
+            const box = await page.locator('#host .progress.position-relative').boundingBox();
+            await page.mouse.click(box.x + box.width * .8, box.y + box.height / 2);
+
+            await expect(page.locator('#slider')).toHaveValue('2');
+            await page.getByRole('slider').press('ArrowRight');
+            await expect(page.locator('#slider')).toHaveValue('1');
+        });
+    });
+
+    test.describe('scale option', () => {
+        for (const min of [-10, 0, 10]) {
+            test(`maps logarithmic midpoints with min=${min}`, async ({ page }) => {
+                await page.evaluate((min) => UI.Slider.init(document.querySelector('#slider'), { min, max: min + 99, scale: 'logarithmic', tooltip: false }), min);
+                const box = await page.locator('#host .progress.position-relative').boundingBox();
+                await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+
+                await expect(page.locator('#slider')).toHaveValue(`${min + 9}`);
+                await expect(page.getByRole('slider')).toHaveCSS('left', '180px');
+            });
+        }
+
+        test('keeps logarithmic endpoints reachable', async ({ page }) => {
+            await page.evaluate((_) => UI.Slider.init(document.querySelector('#slider'), { min: 10, max: 100, scale: 'logarithmic', tooltip: false }));
+            const box = await page.locator('#host .progress.position-relative').boundingBox();
+            await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+            await page.mouse.down();
+            await page.mouse.move(box.x - 5, box.y + box.height / 2);
+            await expect(page.getByRole('slider')).toHaveAttribute('aria-valuenow', '10');
+            await page.mouse.move(box.x + box.width + 5, box.y + box.height / 2);
+            await page.mouse.up();
+            await expect(page.locator('#slider')).toHaveValue('100');
+        });
+    });
+
+    test.describe('ticks option', () => {
+        test('sorts and deduplicates usable ticks without changing the caller array', async ({ page }) => {
+            const ticks = await page.evaluateHandle((_) => {
+                const ticks = Object.freeze([10, 0, 5, 5, -1, 11, 'invalid']);
+                UI.Slider.init(document.querySelector('#slider'), { ticks });
+                return ticks;
+            });
+
+            await expect(page.locator('[data-ui-value]')).toHaveCount(3);
+            await expect(page.locator('[data-ui-value]').nth(0)).toHaveAttribute('data-ui-value', '0');
+            await expect(page.locator('[data-ui-value]').nth(1)).toHaveAttribute('data-ui-value', '5');
+            expect(await ticks.evaluate((value) => value.join(','))).toBe('10,0,5,5,-1,11,invalid');
+        });
+
+        for (const { key, expected } of [
+            { key: 'Control+ArrowRight', expected: '5' },
+            { key: 'Control+ArrowLeft', expected: '0' },
+        ]) {
+            test(`navigates ticks with ${key}`, async ({ page }) => {
+                await page.evaluate((_) => UI.Slider.init(document.querySelector('#slider'), { ticks: [0, 5, 10] }));
+                await page.getByRole('slider').press(key);
+
+                await expect(page.locator('#slider')).toHaveValue(expected);
+            });
+        }
+
+        test('sets a range endpoint when a tick is clicked', async ({ page }) => {
+            await page.evaluate((_) => UI.Slider.init(document.querySelector('#slider'), { range: true, ticks: [0, 2.5, 10] }).setValue(0, 8));
+            await page.locator('[data-ui-value="2.5"]').click();
+
+            await expect(page.locator('#slider')).toHaveValue('2.5,8');
+        });
+    });
+
+    test.describe('tickLabels option', () => {
+        test('keeps labels associated with ticks after sorting', async ({ page }) => {
+            await page.evaluate((_) => UI.Slider.init(document.querySelector('#slider'), {
+                ticks: [10, 0, 5, 7], tickLabels: ['Ten', 0, 'Five', ''],
+            }));
+
+            await expect(page.locator('#host small')).toHaveText(['0', 'Five', 'Ten']);
+        });
+    });
+
+    test.describe('tickSnapBounds option', () => {
+        test('snaps to the zero tick within the configured distance', async ({ page }) => {
+            await page.evaluate((_) => UI.Slider.init(document.querySelector('#slider'), { ticks: [0, 5], tickSize: 10, step: .1, tickSnapBounds: .5, tooltip: false }));
+            const box = await page.locator('#host .progress.position-relative').boundingBox();
+            await page.mouse.click(box.x + box.width * .04, box.y + box.height / 2);
+
+            await expect(page.locator('#slider')).toHaveValue('0');
+        });
+
+        test('does not snap outside the configured distance', async ({ page }) => {
+            await page.evaluate((_) => UI.Slider.init(document.querySelector('#slider'), { ticks: [0, 5], tickSnapBounds: .5, tooltip: false }));
+            const box = await page.locator('#host .progress.position-relative').boundingBox();
+            await page.mouse.click(box.x + box.width * .3, box.y + box.height / 2);
+
+            await expect(page.locator('#slider')).toHaveValue('3');
+        });
+    });
+
+    test.describe('lockToTicks option', () => {
+        test('snaps setters to the nearest tick including zero', async ({ page }) => {
+            await page.evaluate((_) => UI.Slider.init(document.querySelector('#slider'), { ticks: [0, 5, 10], lockToTicks: true }).setValue(.2));
+
+            await expect(page.locator('#slider')).toHaveValue('0');
+            await page.getByRole('slider').press('ArrowRight');
+            await expect(page.locator('#slider')).toHaveValue('5');
+            await page.getByRole('slider').press('ArrowLeft');
+            await expect(page.locator('#slider')).toHaveValue('0');
+        });
+
+        test('uses ordinary steps when there are no usable ticks', async ({ page }) => {
+            await page.evaluate((_) => UI.Slider.init(document.querySelector('#slider'), { ticks: [-1, 20], lockToTicks: true }));
+            await page.getByRole('slider').press('ArrowRight');
+
+            await expect(page.locator('#slider')).toHaveValue('4');
+            await expect(page.locator('[data-ui-value]')).toHaveCount(0);
+        });
+    });
+
+    test.describe('tooltip option', () => {
+        test('does not create a tooltip when disabled', async ({ page }) => {
+            await page.evaluate((_) => UI.Slider.init(document.querySelector('#slider'), { tooltip: false }));
+            await page.getByRole('slider').focus();
+
+            await expect(page.getByRole('tooltip')).toHaveCount(0);
+        });
+
+        test('shows on focus and hides when focus leaves', async ({ page }) => {
+            await page.evaluate((_) => UI.Slider.init(document.querySelector('#slider')));
+            await page.getByRole('slider').focus();
+            await expect(page.getByRole('tooltip')).toHaveText('3');
+            await page.locator('#outside').focus();
+            await expect(page.getByRole('tooltip')).toHaveCount(0);
+        });
+
+        test('keeps the tooltip visible while focus remains after hover ends', async ({ page }) => {
+            await page.evaluate((_) => UI.Slider.init(document.querySelector('#slider')));
+            await page.getByRole('slider').hover();
+            await page.getByRole('slider').focus();
+            await page.mouse.move(0, 0);
+
+            await expect(page.getByRole('tooltip')).toBeVisible();
+        });
+
+        test('shows always-visible content after initialization', async ({ page }) => {
+            await page.evaluate((_) => UI.Slider.init(document.querySelector('#slider'), { tooltip: 'always' }));
+
+            await expect(page.getByRole('tooltip')).toBeVisible();
+            await expect(page.getByRole('tooltip')).toHaveText('3');
+            await page.evaluate((_) => $('#slider').slider('disable'));
+            await expect(page.getByRole('tooltip')).toHaveCount(0);
+        });
+
+        test('settles rapid focus changes without stale visibility', async ({ page }) => {
+            await page.evaluate((_) => UI.Slider.init(document.querySelector('#slider'), { range: true }).setValue(2, 8));
+            await page.getByRole('slider', { name: 'Amount start' }).focus();
+            await page.evaluate((_) => {
+                const handles = document.querySelectorAll('[role="slider"]');
+                handles[0].blur();
+                handles[1].focus();
+            });
+
+            await expect(page.getByRole('tooltip')).toBeVisible();
+            await page.locator('#outside').focus();
+            await expect(page.getByRole('tooltip')).toHaveCount(0);
+        });
+    });
+
+    test.describe('tooltipPlacement option', () => {
+        test('uses the requested placement', async ({ page }) => {
+            await page.evaluate((_) => UI.Slider.init(document.querySelector('#slider'), { tooltip: 'always', tooltipPlacement: 'bottom' }));
+
+            await expect(page.getByRole('tooltip')).toHaveAttribute('data-ui-placement', /bottom/);
+        });
+    });
+
+    test.describe('valueText option', () => {
+        test('formats accessible text and tooltip content', async ({ page }) => {
+            await page.evaluate((_) => UI.Slider.init(document.querySelector('#slider'), {
+                tooltip: 'always', valueText: (value) => `Value ${value}`,
+            }).setValue(7));
+
+            await expect(page.getByRole('slider')).toHaveAttribute('aria-valuetext', 'Value 7');
+            await expect(page.getByRole('tooltip')).toHaveText('Value 7');
+        });
+
+        test('rejects non-function formatters', async ({ page }) => {
+            expect(await page.evaluate((_) => {
+                try {
+                    UI.Slider.init(document.querySelector('#slider'), { valueText: 'invalid' });
+                } catch (error) {
+                    return error instanceof TypeError;
+                }
+            })).toBe(true);
+        });
+    });
+
+    test.describe('rangeText option', () => {
+        test('formats the range tooltip', async ({ page }) => {
+            await page.evaluate((_) => UI.Slider.init(document.querySelector('#slider'), {
+                range: true, tooltip: 'always', rangeText: (start, end) => `${start} to ${end}`,
+            }).setValue(2, 8));
+
+            await expect(page.getByRole('tooltip')).toHaveText('2 to 8');
+        });
+    });
+});

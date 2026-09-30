@@ -262,7 +262,7 @@ Include single/range, horizontal/vertical, reversed, disabled, fractional steps/
 
 ## 8. Bugs and other issues found
 
-These findings record the pre-migration audit and distinguish direct source evidence from behavior that needed browser reproduction. See the implementation status below for fixes and subsequent verification. The permanent browser suite remains section 5 work.
+These findings record the pre-migration audit and distinguish direct source evidence from behavior that needed browser reproduction. See the implementation status below for fixes and subsequent verification. The permanent browser suite is now implemented in section 5; see the implementation status below.
 
 ### Confirmed migration blockers
 
@@ -358,4 +358,17 @@ Sections **3. JavaScript migration and public behavior** and **4. Styling and Sa
 - Left/Right follow the physical horizontal axis, including RTL/reversal. Up increases and Down decreases numerically; Home/End select endpoints. Ctrl+arrows navigate usable ticks; `lockToTicks` also uses adjacent ticks for ordinary arrow navigation. Empty usable tick lists fall back to bounded step movement.
 - Step rounding is relative to `min`, with final bounds enforced and endpoints reachable. Locked ticks take precedence over the step grid; pointer snapping may also select off-step ticks. Programmatic reversed ranges are sorted; interactive crossing hands focus to the other handle.
 
-Sections 3 and 4 remain uncommitted for review. The prematurely added test files, harness, and Playwright config were removed at the user's direction; **section 5 remains deferred**. Its scripts/dependencies from section 1 are present, but browser-test and coverage commands still await their permanent configs and suite. CI, Codecov, README/demo rewrites, and release validation also remain outstanding. No package was published.
+Sections 3 and 4 were committed as `35cf08a` (`Migrate Slider source and styling to Frost UI 4`) before beginning sections 5 and 6.
+
+### Sections 5 and 6
+
+- Added the reference Playwright configuration and automatic browser fixture, a fixed-route local server, and separate main, forms, and styles suites. Public methods use class/QuerySet callback parameterization. Method groups precede input attributes, events, user interactions, and individual option groups; form groups follow SelectMenu's order. Rendered state uses locator assertions, with scalar assertions for API identity/events and direct array assertions for the public range return value.
+- Added Chromium V8 coverage through Monocart, source-map resolution, HTML/LCOV reports, and the reference Codecov policy. Coverage includes all Slider source except the erased browser re-export. No light/dark test matrix was added because Slider supplies no theme styling.
+- Added CI for Chromium on Node 20/22/24 and Firefox/WebKit on Node 24, with lint/build checks, OIDC Codecov upload, tracked-bundle verification, and package validation. Added the reference release-published workflow with npm provenance.
+- The browser suites exercise the unminified UMD build. No separate bundle suite or ESM/minified fixture is retained; distribution smoke checks were already completed in section 2.
+- Browser coverage includes numeric bounds and steps, logarithmic scales, single/range values, ticks, keyboard and pointer input, cancellation, focus and accessibility, form synchronization/reset, lifecycle cleanup, and physical layout across horizontal/vertical, reversed, and RTL modes. Touch-specific cancellation and pointer ownership use synthetic Pointer Events; physical touch devices have not been tested.
+
+- Validation on Node 24: all 161 retained component/form/style cases passed across Chromium, Firefox, and WebKit, with affected Firefox/WebKit checks rerun after correcting stale-server reuse and subpixel label tolerances. Monocart reported 96.94% source line coverage, 97.47% statement coverage, 93.15% branch coverage, and 100% function coverage. Lint, build, unchanged tracked bundles, package dry run, and workflow YAML parsing passed.
+- No additional Slider source defects were found in this stage. WebKit text measurement differed by approximately 0.07px; label alignment assertions now allow subpixel rounding.
+
+The new section 5–6 files are uncommitted. README/demo rewrites remain section 7 work. Codecov repository activation and npm trusted-publisher configuration require external service setup and have not been verified; no workflow was run on GitHub and no package was published.

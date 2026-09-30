@@ -1,0 +1,159 @@
+import { expect, test } from '#test';
+
+test.describe('Slider styles', () => {
+    test.beforeEach(async ({ page }) => {
+        await page.evaluate((_) => {
+            document.body.innerHTML = '<div id="host" style="width:360px;margin:40px">' +
+                '<label for="slider">Amount</label><input id="slider" value="2,8"></div>';
+        });
+    });
+
+    test.describe('layout', () => {
+        for (const orientation of ['horizontal', 'vertical']) {
+            for (const reversed of [false, true]) {
+                for (const direction of ['ltr', 'rtl']) {
+                    test.describe(`${orientation}, reversed=${reversed}, ${direction}`, () => {
+                        const vertical = orientation === 'vertical';
+                        const flipped = reversed !== (!vertical && direction === 'rtl');
+                        const axis = vertical ? 'top' : 'left';
+                        const size = vertical ? 200 : 360;
+
+                        test.beforeEach(async ({ page }) => {
+                            await page.evaluate(({ orientation, reversed, direction }) => {
+                                document.querySelector('#host').dir = direction;
+                                UI.Slider.init(document.querySelector('#slider'), {
+                                    orientation, reversed, range: true, ticks: [0, 2, 8, 10],
+                                    tickLabels: ['Zero', 'Two', 'Eight', 'Ten'], tooltip: false,
+                                });
+                            }, { orientation, reversed, direction });
+                        });
+
+                        test('aligns handles and ticks on the physical value axis', async ({ page }) => {
+                            const start = page.getByRole('slider', { name: 'Amount start' });
+                            const tick = page.locator('[data-ui-value="2"]');
+                            await expect(start).toHaveCSS(axis, `${size * (flipped ? .8 : .2)}px`);
+                            await expect(tick).toHaveCSS(axis, `${size * (flipped ? .8 : .2)}px`);
+                            const handleBounds = await start.boundingBox();
+                            const tickBounds = await tick.boundingBox();
+                            expect(handleBounds.x + handleBounds.width / 2).toBeCloseTo(tickBounds.x + tickBounds.width / 2, 1);
+                            expect(handleBounds.y + handleBounds.height / 2).toBeCloseTo(tickBounds.y + tickBounds.height / 2, 1);
+                        });
+
+                        test('aligns labels with their ticks', async ({ page }) => {
+                            const label = page.locator('small', { hasText: 'Two' });
+                            await expect(label).toHaveCSS(axis, `${size * (flipped ? .8 : .2)}px`);
+                            const labelBounds = await label.boundingBox();
+                            const tickBounds = await page.locator('[data-ui-value="2"]').boundingBox();
+                            expect(vertical ? labelBounds.y + labelBounds.height / 2 : labelBounds.x + labelBounds.width / 2)
+                                .toBeCloseTo(vertical ? tickBounds.y + tickBounds.height / 2 : tickBounds.x + tickBounds.width / 2, 0);
+                        });
+
+                        test('fills the selected interval between handles', async ({ page }) => {
+                            const selection = page.locator('.progress.position-relative > .bg-primary');
+                            await expect(selection).toHaveCSS(axis, `${size * .2}px`);
+                            await expect(selection).toHaveCSS(vertical ? 'height' : 'width', `${size * .6}px`);
+                            await expect(selection).toHaveCSS('box-shadow', 'none');
+                            await expect(selection).toHaveCSS('transition-duration', '0s');
+                        });
+                    });
+                }
+            }
+        }
+    });
+
+    test.describe('sizing', () => {
+        for (const orientation of ['horizontal', 'vertical']) {
+            test(`applies track and handle dimensions (${orientation})`, async ({ page }) => {
+                await page.evaluate((orientation) => UI.Slider.init(document.querySelector('#slider'), {
+                    orientation, sliderSize: 12, handleSize: 24, handleSizeRatio: .5,
+                    verticalHeight: 300, tooltip: false,
+                }), orientation);
+
+                const vertical = orientation === 'vertical';
+                await expect(page.locator('.progress.position-relative')).toHaveCSS('width', vertical ? '12px' : '360px');
+                await expect(page.locator('.progress.position-relative')).toHaveCSS('height', vertical ? '300px' : '12px');
+                await expect(page.getByRole('slider')).toHaveCSS('width', vertical ? '24px' : '12px');
+                await expect(page.getByRole('slider')).toHaveCSS('height', vertical ? '12px' : '24px');
+            });
+        }
+
+        test('applies tick dimensions', async ({ page }) => {
+            await page.evaluate((_) => UI.Slider.init(document.querySelector('#slider'), { ticks: [5], tickSize: 40 }));
+
+            await expect(page.locator('[data-ui-value="5"]')).toHaveCSS('width', '40px');
+            await expect(page.locator('[data-ui-value="5"]')).toHaveCSS('height', '40px');
+        });
+    });
+
+    for (const { option, value, index } of [
+        { option: 'low', value: 'bg-danger', index: 0 },
+        { option: 'selection', value: 'bg-success', index: 1 },
+        { option: 'high', value: 'bg-warning', index: 2 },
+    ]) {
+        test.describe(`${option} option`, () => {
+            test('applies the interval background class', async ({ page }) => {
+                await page.evaluate(({ option, value }) => UI.Slider.init(document.querySelector('#slider'), {
+                    range: true, [option]: value,
+                }), { option, value });
+
+                await expect(page.locator('.progress.position-relative > .progress-bar').nth(index)).toHaveClass(new RegExp(value));
+            });
+        });
+    }
+
+    test.describe('rangeHighlights option', () => {
+        test('normalizes reversed intervals and clips them to the bounds', async ({ page }) => {
+            await page.evaluate((_) => UI.Slider.init(document.querySelector('#slider'), {
+                range: true, ticks: [0, 5, 10], rangeHighlights: [
+                    { start: 5, end: -2, style: 'bg-danger' },
+                    { start: 8, end: 12, style: 'bg-warning' },
+                    { start: 'invalid', end: 4, style: 'bg-success' },
+                ],
+            }));
+
+            const track = page.locator('.progress.position-relative');
+            await expect(track.locator('.bg-danger')).toHaveCSS('left', '0px');
+            await expect(track.locator('.bg-danger')).toHaveCSS('width', '180px');
+            await expect(track.locator('.bg-warning')).toHaveCSS('left', '288px');
+            await expect(track.locator('.bg-warning')).toHaveCSS('width', '72px');
+            await expect(track.locator('.bg-success')).toHaveCount(0);
+        });
+
+        test('takes precedence over selection styling on ticks', async ({ page }) => {
+            await page.evaluate((_) => UI.Slider.init(document.querySelector('#slider'), {
+                range: true, ticks: [0, 5, 10], low: 'bg-info', high: 'bg-warning',
+                rangeHighlights: [{ start: 4, end: 6, style: 'bg-danger' }],
+            }));
+
+            await expect(page.locator('[data-ui-value="0"]')).toHaveClass(/bg-info/);
+            await expect(page.locator('[data-ui-value="5"]')).toHaveClass(/bg-danger/);
+            await expect(page.locator('[data-ui-value="10"]')).toHaveClass(/bg-warning/);
+            await page.evaluate((_) => $('#slider').slider('setValue', 0, 10));
+            await expect(page.locator('[data-ui-value="0"]')).toHaveClass(/bg-primary/);
+            await expect(page.locator('[data-ui-value="5"]')).toHaveClass(/bg-danger/);
+        });
+    });
+
+    test.describe('disabledOpacity option', () => {
+        test('dims the container and restores opacity on enable', async ({ page }) => {
+            await page.evaluate((_) => {
+                const slider = UI.Slider.init(document.querySelector('#slider'), { disabledOpacity: .25 });
+                slider.disable();
+            });
+
+            await expect(page.locator('#host > .position-relative')).toHaveCSS('opacity', '0.25');
+            await page.evaluate((_) => $('#slider').slider('enable'));
+            await expect(page.locator('#host > .position-relative')).toHaveCSS('opacity', '1');
+        });
+    });
+
+    test.describe('focus', () => {
+        test('uses the UI focus ring on the active handle', async ({ page }) => {
+            await page.evaluate((_) => UI.Slider.init(document.querySelector('#slider')));
+            await page.getByRole('slider').focus();
+
+            await expect(page.getByRole('slider')).toBeFocused();
+            await expect(page.getByRole('slider')).not.toHaveCSS('box-shadow', 'none');
+        });
+    });
+});
