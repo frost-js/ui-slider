@@ -1,0 +1,15 @@
+main > section {
+    scroll-margin-top: 5rem;
+}
+
+.demo-slider {
+    margin: 2.5rem 1rem 3rem;
+}
+
+.demo-slider-vertical {
+    margin: 2rem 3rem 2rem 1rem;
+}
+
+.demo-event-log {
+    height: 18rem;
+}

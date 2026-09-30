@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Frost UI Slider Demo</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fr0st/ui@4/dist/frost-ui.min.css">
+    <link rel="stylesheet" href="assets/demo.css">
+    <script src="https://cdn.jsdelivr.net/npm/@fr0st/ui@4/dist/frost-ui-bundle.min.js"></script>
+    <script src="../dist/frost-ui-slider.js"></script>
+    <script type="module" src="assets/demo.js"></script>
+</head>
+
+<body>
+    <header class="navbar bg-glass sticky-top border-bottom">
+        <div class="container d-flex align-items-center justify-content-between gap-3">
+            <a class="navbar-brand d-flex align-items-center gap-2 fw-bold" href="#top">
+                <span class="badge bg-primary bg-gradient shadow-glow fs-5" aria-hidden="true">F</span>
+                <span>Slider</span>
+            </a>
+            <div class="d-flex align-items-center gap-2">
+                <label class="small fw-bold mb-0" for="demo-theme">Theme</label>
+                <select class="input-outline input-sm w-auto rounded-pill" id="demo-theme" data-demo-theme>
+                    <option value="system">System</option>
+                    <option value="light">Light</option>
+                    <option value="dark">Dark</option>
+                </select>
+            </div>
+        </div>
+    </header>
+
+    <main class="container py-4 py-lg-5" id="top">
+        <section class="card border-0 overflow-hidden shadow-lg mb-5">
+            <div class="row g-0 align-items-stretch">
+                <div class="col-lg-7 d-flex align-items-center bg-ambient">
+                    <div class="p-4 p-md-5">
+                        <span class="badge bg-primary-subtle text-primary-subtle mb-3">Frost UI v4 component</span>
+                        <h1 class="display-2 mb-4">Choose a value.<br><span class="text-gradient">Find your range.</span></h1>
+                        <p class="lead text-body-secondary mb-4">Explore single values, two-handle ranges, tick marks, logarithmic scales, and keyboard controls.</p>
+                        <nav class="d-flex flex-wrap gap-2" aria-label="Demo sections">
+                            <a class="btn btn-primary ripple" href="#basics">Explore sliders</a>
+                            <a class="btn btn-secondary ripple" href="#methods-events">Try the API</a>
+                            <a class="btn btn-outline-primary ripple" href="#forms">Try a form</a>
+                        </nav>
+                    </div>
+                </div>
+                <div class="col-lg-5 d-flex align-items-center bg-glass">
+                    <div class="p-4 p-md-5 w-100">
+                        <small class="text-body-secondary d-block mb-2">Try it here</small>
+                        <label class="fw-bold" for="hero">Volume</label>
+                        <div class="demo-slider">
+                            <input
+                                id="hero"
+                                class="input-outline"
+                                value="65"
+                                data-ui-toggle="slider"
+                                data-ui-max="100"
+                                data-ui-step="5">
+                        </div>
+                        <p class="small text-body-secondary mb-0">Committed value: <output for="hero" data-demo-value-for="hero">65</output></p>
+                        <p class="form-text mt-3 mb-0">Drag, click the track, or press Tab to reach the handle.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="mb-5" id="basics">
+            <header class="border-bottom pb-3 mb-4">
+                <h2 class="h3 mb-1">Single values and ranges</h2>
+                <p class="text-body-secondary mb-0">Drag a handle, click the track, or focus a handle and use the arrow keys.</p>
+            </header>
+            <div class="row g-4">
+                <div class="col-md-6 col-xl-4">
+                    <div class="card card-body h-100 p-4">
+                        <h3 class="h5">Single value</h3>
+                        <p class="text-body-secondary">Choose a value between 0 and 10.</p>
+                        <div>
+                            <label class="fw-bold" for="basic">Level</label>
+                            <div class="demo-slider">
+                                <input id="basic" class="input-outline" value="4" data-ui-toggle="slider">
+                            </div>
+                            <p class="small text-body-secondary mb-0">Committed value: <output for="basic" data-demo-value-for="basic">4</output></p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6 col-xl-4">
+                    <div class="card card-body h-100 p-4">
+                        <h3 class="h5">Two endpoints</h3>
+                        <p class="text-body-secondary">Choose a lower and upper value. Crossing an endpoint transfers focus to the other handle.</p>
+                        <div>
+                            <label class="fw-bold" for="range">Selected interval</label>
+                            <div class="demo-slider">
+                                <input
+                                    id="range"
+                                    class="input-outline"
+                                    value="2,8"
+                                    data-ui-toggle="slider"
+                                    data-ui-range="true">
+                            </div>
+                            <p class="small text-body-secondary mb-0">Committed value: <output for="range" data-demo-value-for="range">2,8</output></p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6 col-xl-4">
+                    <div class="card card-body h-100 p-4">
+                        <h3 class="h5">Disabled</h3>
+                        <p class="text-body-secondary">Disabled handles leave the tab order and use the configured opacity.</p>
+                        <div>
+                            <label class="fw-bold" for="disabled">Unavailable level</label>
+                            <div class="demo-slider">
+                                <input id="disabled" class="input-outline" value="6" data-ui-toggle="slider" disabled>
+                            </div>
+                            <p class="small text-body-secondary mb-0">Committed value: <output for="disabled" data-demo-value-for="disabled">6</output></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="mb-5" id="layouts">
+            <header class="border-bottom pb-3 mb-4">
+                <h2 class="h3 mb-1">Orientation and direction</h2>
+                <p class="text-body-secondary mb-0">The same controls support vertical tracks, reversal, and right-to-left layouts.</p>
+            </header>
+            <div class="row g-4">
+                <div class="col-md-6 col-xl-4">
+                    <div class="card card-body h-100 p-4">
+                        <h3 class="h5">Vertical range</h3>
+                        <p class="text-body-secondary">Values increase down the track. Up and Down change the numeric value.</p>
+                        <div>
+                            <label class="fw-bold" for="vertical">Vertical interval</label>
+                            <div class="demo-slider-vertical">
+                                <input
+                                    id="vertical"
+                                    class="input-outline"
+                                    value="2,8"
+                                    data-ui-toggle="slider"
+                                    data-ui-range="true"
+                                    data-ui-orientation="vertical"
+                                    data-ui-ticks="[0,5,10]"
+                                    data-ui-tick-labels="[&quot;0&quot;,&quot;5&quot;,&quot;10&quot;]"
+                                    data-ui-vertical-height="200">
+                            </div>
+                            <p class="small text-body-secondary mb-0">Committed value: <output for="vertical" data-demo-value-for="vertical">2,8</output></p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6 col-xl-4">
+                    <div class="card card-body h-100 p-4">
+                        <h3 class="h5">Reversed</h3>
+                        <p class="text-body-secondary">The maximum sits on the left. Left and Right still follow the screen direction.</p>
+                        <div>
+                            <label class="fw-bold" for="reversed">Reversed level</label>
+                            <div class="demo-slider">
+                                <input
+                                    id="reversed"
+                                    class="input-outline"
+                                    value="3"
+                                    data-ui-toggle="slider"
+                                    data-ui-reversed="true"
+                                    data-ui-ticks="[0,5,10]"
+                                    data-ui-tick-labels="[&quot;0&quot;,&quot;5&quot;,&quot;10&quot;]">
+                            </div>
+                            <p class="small text-body-secondary mb-0">Committed value: <output for="reversed" data-demo-value-for="reversed">3</output></p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6 col-xl-4">
+                    <div class="card card-body h-100 p-4">
+                        <h3 class="h5">Right to left</h3>
+                        <p class="text-body-secondary">The value axis follows the surrounding text direction.</p>
+                        <div dir="rtl">
+                            <label class="fw-bold" for="rtl">RTL level</label>
+                            <div class="demo-slider">
+                                <input
+                                    id="rtl"
+                                    class="input-outline"
+                                    value="3"
+                                    data-ui-toggle="slider"
+                                    data-ui-ticks="[0,5,10]"
+                                    data-ui-tick-labels="[&quot;0&quot;,&quot;5&quot;,&quot;10&quot;]">
+                            </div>
+                            <p class="small text-body-secondary mb-0">Committed value: <output for="rtl" data-demo-value-for="rtl">3</output></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="mb-5" id="ticks">
+            <header class="border-bottom pb-3 mb-4">
+                <h2 class="h3 mb-1">Ticks and highlighted intervals</h2>
+                <p class="text-body-secondary mb-0">Use labels for landmarks, snap near a tick, or limit selection to the available ticks.</p>
+            </header>
+            <div class="row g-4">
+                <div class="col-md-6 col-xl-4">
+                    <div class="card card-body h-100 p-4">
+                        <h3 class="h5">Snap near a tick</h3>
+                        <p class="text-body-secondary">Move within 3 units of 0, 25, 50, 75, or 100 to snap. Ctrl + arrow jumps between ticks.</p>
+                        <div>
+                            <label class="fw-bold" for="snap">Snapping level</label>
+                            <div class="demo-slider">
+                                <input
+                                    id="snap"
+                                    class="input-outline"
+                                    value="40"
+                                    data-ui-toggle="slider"
+                                    data-ui-max="100"
+                                    data-ui-ticks="[0,25,50,75,100]"
+                                    data-ui-tick-labels="[&quot;0&quot;,&quot;25&quot;,&quot;50&quot;,&quot;75&quot;,&quot;100&quot;]"
+                                    data-ui-tick-snap-bounds="3"
+                                    data-ui-tick-size="20">
+                            </div>
+                            <p class="small text-body-secondary mb-0">Committed value: <output for="snap" data-demo-value-for="snap">40</output></p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6 col-xl-4">
+                    <div class="card card-body h-100 p-4">
+                        <h3 class="h5">Lock to ticks</h3>
+                        <p class="text-body-secondary">Only the four labeled values can be selected, including zero.</p>
+                        <div>
+                            <label class="fw-bold" for="locked">Preset level</label>
+                            <div class="demo-slider">
+                                <input
+                                    id="locked"
+                                    class="input-outline"
+                                    value="5"
+                                    data-ui-toggle="slider"
+                                    data-ui-ticks="[0,2.5,5,10]"
+                                    data-ui-tick-labels="[&quot;0&quot;,&quot;2.5&quot;,&quot;5&quot;,&quot;10&quot;]"
+                                    data-ui-lock-to-ticks="true"
+                                    data-ui-tick-size="20">
+                            </div>
+                            <p class="small text-body-secondary mb-0">Committed value: <output for="locked" data-demo-value-for="locked">5</output></p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6 col-xl-4">
+                    <div class="card card-body h-100 p-4">
+                        <h3 class="h5">Highlight a range</h3>
+                        <p class="text-body-secondary">The green interval marks 4–6. The lower and upper regions use separate colors.</p>
+                        <div>
+                            <label class="fw-bold" for="highlights">Highlighted interval</label>
+                            <div class="demo-slider">
+                                <input
+                                    id="highlights"
+                                    class="input-outline"
+                                    value="2,8"
+                                    data-ui-toggle="slider"
+                                    data-ui-range="true"
+                                    data-ui-low="bg-info"
+                                    data-ui-high="bg-warning"
+                                    data-ui-ticks="[0,5,10]"
+                                    data-ui-tick-labels="[&quot;0&quot;,&quot;5&quot;,&quot;10&quot;]"
+                                    data-ui-range-highlights="[{&quot;start&quot;:4,&quot;end&quot;:6,&quot;style&quot;:&quot;bg-success&quot;}]">
+                            </div>
+                            <p class="small text-body-secondary mb-0">Committed value: <output for="highlights" data-demo-value-for="highlights">2,8</output></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="mb-5" id="scales">
+            <header class="border-bottom pb-3 mb-4">
+                <h2 class="h3 mb-1">Steps and scales</h2>
+                <p class="text-body-secondary mb-0">Value bounds and step sizes stay in numeric units, including when positions use a logarithmic scale.</p>
+            </header>
+            <div class="row g-4">
+                <div class="col-md-6 col-xl-4">
+                    <div class="card card-body h-100 p-4">
+                        <h3 class="h5">Fractional steps</h3>
+                        <p class="text-body-secondary">Values run from 1.5 to 4.5 in steps of 0.25.</p>
+                        <div>
+                            <label class="fw-bold" for="fractional">Fine adjustment</label>
+                            <div class="demo-slider">
+                                <input
+                                    id="fractional"
+                                    class="input-outline"
+                                    value="2.75"
+                                    data-ui-toggle="slider"
+                                    data-ui-min="1.5"
+                                    data-ui-max="4.5"
+                                    data-ui-step="0.25">
+                            </div>
+                            <p class="small text-body-secondary mb-0">Committed value: <output for="fractional" data-demo-value-for="fractional">2.75</output></p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6 col-xl-4">
+                    <div class="card card-body h-100 p-4">
+                        <h3 class="h5">Logarithmic scale</h3>
+                        <p class="text-body-secondary">A shifted logarithmic scale gives more room to smaller values between 10 and 100.</p>
+                        <div>
+                            <label class="fw-bold" for="logarithmic">Logarithmic value</label>
+                            <div class="demo-slider">
+                                <input
+                                    id="logarithmic"
+                                    class="input-outline"
+                                    value="40"
+                                    data-ui-toggle="slider"
+                                    data-ui-min="10"
+                                    data-ui-max="100"
+                                    data-ui-scale="logarithmic"
+                                    data-ui-ticks="[10,25,100]"
+                                    data-ui-tick-labels="[&quot;10&quot;,&quot;25&quot;,&quot;100&quot;]"
+                                    data-ui-tick-size="20">
+                            </div>
+                            <p class="small text-body-secondary mb-0">Committed value: <output for="logarithmic" data-demo-value-for="logarithmic">40</output></p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6 col-xl-4">
+                    <div class="card card-body h-100 p-4">
+                        <h3 class="h5">Negative bounds</h3>
+                        <p class="text-body-secondary">Choose a temperature from −10 to 40 degrees.</p>
+                        <div>
+                            <label class="fw-bold" for="negative">Temperature</label>
+                            <div class="demo-slider">
+                                <input
+                                    id="negative"
+                                    class="input-outline"
+                                    value="20"
+                                    data-ui-toggle="slider"
+                                    data-ui-min="-10"
+                                    data-ui-max="40"
+                                    data-ui-ticks="[-10,0,20,40]"
+                                    data-ui-tick-labels="[&quot;\u221210&quot;,&quot;0&quot;,&quot;20&quot;,&quot;40&quot;]"
+                                    data-ui-tick-size="20">
+                            </div>
+                            <p class="small text-body-secondary mb-0">Committed value: <output for="negative" data-demo-value-for="negative">20</output></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="mb-5" id="tooltips">
+            <header class="border-bottom pb-3 mb-4">
+                <h2 class="h3 mb-1">Tooltips and value formatting</h2>
+                <p class="text-body-secondary mb-0">The default tooltip appears on hover, focus, or drag. Formatters can add units without changing the submitted value.</p>
+            </header>
+            <div class="row g-4">
+                <div class="col-md-6 col-xl-4">
+                    <div class="card card-body h-100 p-4">
+                        <h3 class="h5">No tooltip</h3>
+                        <p class="text-body-secondary">The committed value remains visible below the track.</p>
+                        <div>
+                            <label class="fw-bold" for="no-tooltip">Quiet level</label>
+                            <div class="demo-slider">
+                                <input
+                                    id="no-tooltip"
+                                    class="input-outline"
+                                    value="5"
+                                    data-ui-toggle="slider"
+                                    data-ui-tooltip="false">
+                            </div>
+                            <p class="small text-body-secondary mb-0">Committed value: <output for="no-tooltip" data-demo-value-for="no-tooltip">5</output></p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6 col-xl-4">
+                    <div class="card card-body h-100 p-4">
+                        <h3 class="h5">Always visible</h3>
+                        <p class="text-body-secondary">A percentage formatter supplies both the tooltip and accessible handle text.</p>
+                        <div>
+                            <label class="fw-bold" for="formatted">Completion</label>
+                            <div class="demo-slider">
+                                <input
+                                    id="formatted"
+                                    class="input-outline"
+                                    value="60"
+                                    data-ui-toggle="slider"
+                                    data-ui-max="100"
+                                    data-ui-step="5"
+                                    data-ui-tooltip="always">
+                            </div>
+                            <p class="small text-body-secondary mb-0">Committed value: <output for="formatted" data-demo-value-for="formatted">60</output></p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6 col-xl-4">
+                    <div class="card card-body h-100 p-4">
+                        <h3 class="h5">Formatted range</h3>
+                        <p class="text-body-secondary">Currency formatting changes the tooltip and handle descriptions; the input still stores numbers.</p>
+                        <div>
+                            <label class="fw-bold" for="formatted-range">Budget</label>
+                            <div class="demo-slider">
+                                <input
+                                    id="formatted-range"
+                                    class="input-outline"
+                                    value="25,75"
+                                    data-ui-toggle="slider"
+                                    data-ui-range="true"
+                                    data-ui-max="100"
+                                    data-ui-step="5"
+                                    data-ui-tooltip="always"
+                                    data-ui-tooltip-placement="bottom">
+                            </div>
+                            <p class="small text-body-secondary mb-0">Committed value: <output for="formatted-range" data-demo-value-for="formatted-range">25,75</output></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="mb-5" id="methods-events">
+            <header class="border-bottom pb-3 mb-4">
+                <h2 class="h3 mb-1">Methods and events</h2>
+                <p class="text-body-secondary mb-0">Set a range, inspect its value, or dispose and recreate the control. Dragging logs preview events before committing on release.</p>
+            </header>
+            <div class="row g-4">
+                <div class="col-lg-6">
+                    <div class="card card-body h-100 p-4">
+                        <label class="fw-bold" for="methods-slider">Editable interval</label>
+                        <div class="demo-slider">
+                            <input
+                                id="methods-slider"
+                                class="input-outline"
+                                value="20,80"
+                                data-ui-toggle="slider"
+                                data-ui-range="true"
+                                data-ui-max="100"
+                                data-ui-step="5">
+                        </div>
+                        <p class="small text-body-secondary mb-0">Committed value: <output for="methods-slider" data-demo-value-for="methods-slider">20,80</output></p>
+                        <div class="row g-3 mt-3 mb-3">
+                            <div class="col-6">
+                                <label for="method-start">Start value</label>
+                                <input class="input-outline" id="method-start" type="number" value="25" step="5">
+                            </div>
+                            <div class="col-6">
+                                <label for="method-end">End value</label>
+                                <input class="input-outline" id="method-end" type="number" value="75" step="5">
+                            </div>
+                        </div>
+                        <div class="d-flex flex-wrap gap-2">
+                            <button class="btn btn-primary" type="button" data-demo-method="setValue">Set value</button>
+                            <button class="btn btn-outline-primary" type="button" data-demo-method="getValue">Get value</button>
+                            <button class="btn btn-outline-secondary" type="button" data-demo-method="disable">Disable</button>
+                            <button class="btn btn-outline-secondary" type="button" data-demo-method="enable">Enable</button>
+                            <button class="btn btn-outline-danger" type="button" data-demo-method="dispose">Dispose</button>
+                            <button class="btn btn-outline-success" type="button" data-demo-method="init">Initialize</button>
+                        </div>
+                        <p class="small text-body-secondary mt-3 mb-0" id="method-output" role="status">Ready.</p>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="card card-body h-100 p-4">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h3 class="h5 mb-0" id="event-log-label">Event log</h3>
+                            <button class="btn btn-outline-secondary btn-sm" type="button" id="clear-log">Clear log</button>
+                        </div>
+                        <pre class="demo-event-log small bg-body-tertiary border rounded p-3 overflow-auto mb-0" id="event-log" role="log" aria-labelledby="event-log-label" aria-live="off"></pre>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="mb-5" id="forms">
+            <header class="border-bottom pb-3 mb-4">
+                <h2 class="h3 mb-1">Forms and reset</h2>
+                <p class="text-body-secondary mb-0">Submit reads the committed native values. Reset restores the defaults without emitting another change event.</p>
+            </header>
+            <form class="card card-body p-4" id="slider-form">
+                <fieldset id="form-fields">
+                    <legend class="h5">Playback preferences</legend>
+                    <div class="row g-4">
+                        <div class="col-md-6">
+                            <label class="fw-bold" for="form-volume">Playback volume</label>
+                            <div class="demo-slider">
+                                <input
+                                    id="form-volume"
+                                    name="volume"
+                                    class="input-outline"
+                                    value="60"
+                                    data-ui-toggle="slider"
+                                    data-ui-max="100"
+                                    data-ui-step="5">
+                            </div>
+                            <p class="small text-body-secondary mb-0">Committed value: <output for="form-volume" data-demo-value-for="form-volume">60</output></p>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="fw-bold" for="form-window">Playback window</label>
+                            <div class="demo-slider">
+                                <input
+                                    id="form-window"
+                                    name="window"
+                                    class="input-outline"
+                                    value="20:80"
+                                    data-ui-toggle="slider"
+                                    data-ui-range="true"
+                                    data-ui-max="100"
+                                    data-ui-range-separator=":"
+                                    data-ui-step="5">
+                            </div>
+                            <p class="small text-body-secondary mb-0">Committed value: <output for="form-window" data-demo-value-for="form-window">20:80</output></p>
+                        </div>
+                    </div>
+                </fieldset>
+                <div class="form-check my-3">
+                    <input class="input-check" id="disable-fields" type="checkbox">
+                    <label class="form-check-label" for="disable-fields">Disable these preferences</label>
+                </div>
+                <div class="d-flex flex-wrap gap-2">
+                    <button class="btn btn-primary" type="submit">Submit preferences</button>
+                    <button class="btn btn-outline-secondary" type="reset">Reset preferences</button>
+                </div>
+                <p class="small text-body-secondary mt-3 mb-0" id="form-output" role="status">Submit to inspect the form values.</p>
+            </form>
+        </section>
+
+        <footer class="border-top pt-4 text-body-secondary small">
+            <a href="../README.md">Documentation</a>
+            <span class="mx-2" aria-hidden="true">·</span>
+            <a href="https://github.com/elusivecodes/FrostUI-Slider">Source on GitHub</a>
+        </footer>
+    </main>
+</body>
+
+</html>
