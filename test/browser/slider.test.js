@@ -355,6 +355,28 @@ test.describe('Slider', () => {
             });
         }
 
+        for (const event of ['slide', 'sliding']) {
+            test(`cancels a gesture when disabled in a ${event} listener`, async ({ page }) => {
+                await page.evaluate((event) => {
+                    const instance = UI.Slider.init(document.querySelector('#slider'));
+                    window.changes = 0;
+                    window.releases = 0;
+                    $.addEvent('#slider', `${event}.ui.slider`, () => instance.disable());
+                    $.addEvent('#slider', 'change.ui.slider', () => window.changes++);
+                    $.addEvent('#slider', 'slid.ui.slider', () => window.releases++);
+                }, event);
+                await page.evaluate(dispatchPointer, { type: 'pointerdown', fraction: .5 });
+                await page.evaluate(dispatchPointer, { type: 'pointermove', fraction: .8 });
+                await page.evaluate(dispatchPointer, { type: 'pointerup', fraction: .9 });
+
+                await expect(page.getByRole('slider')).toBeDisabled();
+                await expect(page.getByRole('slider')).toHaveAttribute('aria-valuenow', '3');
+                await expect(page.locator('#slider')).toHaveValue('3');
+                expect(await page.evaluate((_) => window.changes)).toBe(0);
+                expect(await page.evaluate((_) => window.releases)).toBe(0);
+            });
+        }
+
         for (const event of ['slide', 'sliding', 'change', 'slid']) {
             test(`allows disposal in a ${event} listener`, async ({ page }) => {
                 const errors = [];
@@ -543,14 +565,20 @@ test.describe('Slider', () => {
             await expect(page.getByRole('slider')).toHaveAttribute('aria-valuemax', '10');
         });
 
-        test('renders equal bounds without invalid geometry', async ({ page }) => {
-            await page.evaluate((_) => UI.Slider.init(document.querySelector('#slider'), { min: 5, max: 5 }));
+        for (const scale of ['linear', 'logarithmic']) {
+            test(`renders equal bounds without invalid geometry (${scale})`, async ({ page }) => {
+                await page.evaluate((scale) => UI.Slider.init(document.querySelector('#slider'), { min: 5, max: 5, scale }), scale);
 
-            await expect(page.locator('#slider')).toHaveValue('5');
-            await expect(page.getByRole('slider')).toHaveCSS('left', '0px');
-            await page.getByRole('slider').press('End');
-            await expect(page.locator('#slider')).toHaveValue('5');
-        });
+                await expect(page.locator('#slider')).toHaveValue('5');
+                await expect(page.getByRole('slider')).toHaveCSS('left', '0px');
+                await page.getByRole('slider').press('End');
+                await expect(page.locator('#slider')).toHaveValue('5');
+                await page.evaluate(dispatchPointer, { type: 'pointerdown', fraction: .5 });
+                await page.evaluate(dispatchPointer, { type: 'pointerup', fraction: .8 });
+                await expect(page.locator('#slider')).toHaveValue('5');
+                await expect(page.getByRole('slider')).toHaveCSS('left', '0px');
+            });
+        }
 
         test('rejects non-finite bounds', async ({ page }) => {
             expect(await page.evaluate((_) => {
@@ -790,6 +818,20 @@ test.describe('Slider', () => {
             await page.mouse.click(box.x + box.width * .04, box.y + box.height / 2);
 
             await expect(page.locator('#slider')).toHaveValue('0');
+        });
+
+        test('restores an off-step committed tick after cancellation', async ({ page }) => {
+            await page.evaluate((_) => UI.Slider.init(document.querySelector('#slider'), {
+                ticks: [2.5], tickSnapBounds: .5, step: 1, tooltip: false,
+            }));
+            await page.locator('[data-ui-value="2.5"]').click();
+            await expect(page.locator('#slider')).toHaveValue('2.5');
+            await page.evaluate(dispatchPointer, { type: 'pointerdown', fraction: .8 });
+            await expect(page.getByRole('slider')).toHaveAttribute('aria-valuenow', '8');
+            await page.evaluate(dispatchPointer, { type: 'pointercancel' });
+
+            await expect(page.locator('#slider')).toHaveValue('2.5');
+            await expect(page.getByRole('slider')).toHaveAttribute('aria-valuenow', '2.5');
         });
 
         test('does not snap outside the configured distance', async ({ page }) => {

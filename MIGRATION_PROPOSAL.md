@@ -262,49 +262,69 @@ Include single/range, horizontal/vertical, reversed, disabled, fractional steps/
 
 ## 8. Bugs and other issues found
 
-These findings record the pre-migration audit and distinguish direct source evidence from behavior that needed browser reproduction. See the implementation status below for fixes and subsequent verification. The permanent browser suite is now implemented in section 5; see the implementation status below.
+The original audit below described 3.x behavior. The resolutions were implemented in sections 1–4; this section now records their current status and permanent regression coverage. File and method names in the historical evidence refer to the old implementation, including the removed prototype directory.
 
-### Confirmed migration blockers
+### Migration blockers — resolved
 
-| Finding | Evidence | Required change / regression |
+| Finding and original evidence | Resolution | Verification |
 | --- | --- | --- |
-| UI 4 base state is incompatible | `src/slider.js` and all prototype modules use `_node`/`_options`; UI 4 exposes `node`/`options` over private fields | Migrate all accesses; test class and QuerySet initialization against UI 4 |
-| Removed Tooltip internal is called | `src/prototype/events.js`, `_eventsTooltip`, calls `_tooltip._stop()`; UI 4 has no such method | Use public Tooltip lifecycle methods; test hover/focus/drag transitions |
-| Runtime dependencies are undeclared | `package.json` has no peer/runtime declaration for either imported package | Add UI/fQuery peers and dev dependencies; test a clean package consumer |
+| UI 4 base-state incompatibility: Slider read `_node`/`_options`, which UI now stores privately. | Slider uses public `node`/`options` getters and owns its state through private fields. Prototype composition was removed. | Source audit; [main suite](test/browser/slider.test.js), `#init`, class and QuerySet cases. |
+| Removed Tooltip internal: `_eventsTooltip` called `_tooltip._stop()`. | Uses public Tooltip show/hide/refresh/dispose methods and shared hover/focus/drag state. | Main suite, `tooltip option`, event-listener disposal; [style suite](test/browser/slider-style.test.js), `tooltip positioning`. |
+| Undeclared runtime imports: UI and fQuery had no peer/runtime declarations. | UI 4 and fQuery 5 are both peer and development dependencies. | [Manifest](package.json), committed lockfile, installed-peer browser fixture, and the package checks recorded in sections 1–4. |
 
-### Numeric defects reproduced in isolated source checks
+### Numeric defects — resolved
 
-For these checks, the existing helper module was loaded with its import bindings replaced by the sibling core math helpers; no browser or production source was changed. These results verify the numeric paths, not complete DOM interactions.
+The initial numeric failures were reproduced with isolated copies of the old helpers. The current regressions exercise the component through its public API and browser interactions.
 
-| Finding | Observed result | Proposed correction |
+| Finding and original result | Resolution | Verification in the main suite |
 | --- | --- | --- |
-| Zero tick is discarded | `_checkTicks(0.2)` with ticks `[0, 5]` and `lockToTicks: true` returns `0.2`, because `if (closest)` rejects `0` | Check whether a match exists, not its truthiness; cover pointer, keyboard, and setter behavior |
-| Logarithmic inverse adds `min` twice | With min 10/max 100, `_getValue(0)` returns 20 and `_getValue(100)` returns approximately 110 | Correct the inverse and the comparison against the logarithmic `max`; test endpoints and round trips |
-| Step rounding escapes bounds | `_clampValue(10)` with min 0/max 10/step 6 returns 12 | Round relative to min and enforce final bounds; cover non-divisible intervals and decimals |
-| Equal linear bounds yield invalid geometry | `_getPercent(5)` with min=max=5 returns `NaN` | Handle the fixed-value case before interpolation for both scales |
+| Zero tick discarded: `_checkTicks(0.2)` ignored a closest tick of `0` because it tested truthiness. | Tick matching checks the selected value without rejecting zero. | `tickSnapBounds option`, pointer snapping to zero; `lockToTicks option`, setter and keyboard navigation. |
+| Logarithmic inverse added `min` twice: min 10/max 100 mapped endpoints to about 20/110. | Matching shifted `log1p`/`expm1` mappings with explicit endpoint handling. | `scale option`, negative/zero/positive minima, midpoint round trips, and both endpoints. |
+| Step rounding escaped bounds: min 0/max 10/step 6 could return 12. | Round relative to `min`, then clamp again; endpoints remain reachable. | `min option`, `max option`, and `step option`, including decimal steps and a non-divisible interval. |
+| Equal bounds produced `NaN` geometry. | Fixed ranges bypass interpolation. | `max option`, equal linear and logarithmic bounds through initialization, keyboard, and pointer release. |
 
-### Defects visible in source; browser regression cases required
+### Layout, lifecycle, accessibility, and forms — resolved
 
-| Finding | Source evidence | Proposed correction / test |
+| Finding and original evidence | Resolution | Permanent regression coverage |
 | --- | --- | --- |
-| Vertical highlight offset lacks `%` | `_renderRangeHighlights` assigns `top: String(startPercent)` | Use a percentage; numeric style normalization can turn this into pixels |
-| Reversed highlights use unreversed offsets | `_renderBar` sets right/bottom anchoring, but `_renderRangeHighlights` adds left/top without transforming the interval | Derive consistent reversed start/end geometry and clear conflicting anchors |
-| Vertical ticks disagree with labels/handles | `_renderTicks` positions ticks with `bottom`, labels with `top`; `_moveHandle` uses `top` | Share the same coordinate model; verify matching positions including reversed mode |
-| Range tick-release branch calls the single setter | `_eventsRange` invokes `_setValue(value)` for a tick target | Route to range normalization and the selected handle; reproduce reachability because the current drag factory delivers release on the window |
-| Unordered ranges can produce negative selection sizes | `_setValueRange` clamps each endpoint but never orders them | Normalize programmatic endpoints and test handle crossing separately |
-| Disposal overwrites original input state | `dispose` always removes `tabindex` and the hidden class | Restore recorded original state while preserving unrelated runtime changes |
-| Stale handle/debounce references | `dispose` clears `_handleActive`, but interactions use `_handle`; the tooltip debounce is not canceled | Clear actual owned references and cancel/guard delayed work |
-| Incorrect generated label prefix and brittle lookup | Constructor uses `starrating-label` and interpolates raw input IDs into a selector | Use Slider-specific IDs and native label associations or escaped lookup; cover unusual IDs and wrapping labels |
-| Incomplete accessible naming/orientation | Handle rendering only copies the first explicit label and omits `aria-orientation` | Cover explicit ARIA names, native labels, vertical controls, and distinguishable range handles |
-| Form reset/native updates leave rendered state stale | No reset or native value-change synchronization is registered | Add guarded synchronization and tests for cancellation, multiple sliders, and disposal |
+| Vertical highlights assigned a unitless `top: String(startPercent)`. | All interval positions use percentages on the physical track axis. | Style suite, `layout`: highlight position and size on horizontal/vertical tracks. |
+| Reversed highlights mixed right/bottom anchoring with unreversed left/top offsets. | Both interval endpoints are transformed before choosing the start and size. | Style suite, `layout`: asymmetric 2–4 highlights across orientation, reversal, and RTL; the asymmetric interval exposes incorrect reversal. |
+| Vertical ticks used `bottom` while labels and handles used `top`. | Ticks, labels, handles, and intervals share the same coordinate mapping. | Style suite, `layout`: tick/handle centers and label alignment in all eight direction combinations. |
+| Range tick release called the single-value setter. | Tick and track interactions update the nearest range handle through shared range normalization. | Main suite, `ticks option`: off-step range tick click; `range option`: closest-handle selection. |
+| Unordered ranges could produce negative selection sizes. | Programmatic endpoints are sorted; interactive crossing transfers focus to the other handle. | Main suite, `#setValue` and `range option`; style suite, selected interval sizes. |
+| Disposal discarded pre-existing hidden classes and `tabindex`. | Restore recorded input state while preserving unrelated runtime classes and committed values. | Main suite, `#dispose`: class/QuerySet restoration, existing hidden state, absent tabindex, and reinitialization. |
+| Stale handle/debounce references survived disposal. | Abort owned event listeners, disconnect observers, cancel reset work, dispose Tooltip, and clear owned nodes. The old debounce/drag factory was removed. | Main suite, `#dispose`, disposal from each drag/change event, rapid tooltip focus changes; form suite, `disposal`. |
+| Label lookup used a `starrating-label` prefix and interpolated raw input IDs into selectors. | Native label associations are read without assigning IDs to consumer labels. | Main suite, `input attributes`: unusual IDs, explicit and wrapping labels, and preservation of label IDs. |
+| Accessible naming was incomplete and orientation absent. | Handles expose orientation and accessible value text, honor explicit ARIA naming, and distinguish range endpoints. | Main suite, `input attributes`, `orientation option`, `range option`, and `valueText option`. |
+| Form reset and external native changes left handles stale. | Guarded native synchronization, deferred uncanceled reset handling, and observed disabled state. | [Form suite](test/browser/slider-form.test.js), native input/change, submission, validation, disabled state, reset, and disposal groups. |
 
-### Integration risks to reproduce, not yet confirmed as browser failures
+### Original integration risks — reviewed
 
-- Touch release/cancellation: UI's `getPosition` reads active `touches` and then event `pageX/pageY`; it does not read `changedTouches`. Slider calls it on release, when active touches can be empty. Test final touch coordinates and cancellation, and use the last valid position or changed touch as appropriate.
-- Disposal/disable during a gesture or from `slide`, `sliding`, or `change` listeners: current callbacks continue accessing state without lifecycle guards, and the drag factory owns window listeners.
-- Always-visible tooltip initialization occurs during render, before insertion and value/title synchronization; verify attachment and positioning after initialization.
-- New UI progress styling and RTL translate utilities may alter geometry or appearance. Verify visually and with focused layout assertions before adding any component CSS.
-- Invalid numeric strings, missing range endpoints, unsorted/duplicate ticks, and out-of-bounds highlights currently lack a consistent contract. Cover the proposed normalization rules rather than carrying accidental behavior into 4.0.0.
+| Risk | Current handling and verification | Remaining limit |
+| --- | --- | --- |
+| Touch release lacked coordinates when active `touches` became empty. | The old touch-coordinate path was replaced by Pointer Events. Main suite covers final release coordinates, additional pointer IDs, pointer cancellation, and window blur. | Touch-specific cases use synthetic Pointer Events. Physical touchscreen/pen devices have not been exercised. |
+| Disposal/disable during gestures or event callbacks could continue into cleared state. | Abortable listeners and lifecycle guards; main suite covers disposal from slide/sliding/change/slid, disabling from slide/sliding, and cancellation during active input. | No unresolved failure found in these cases. |
+| An always-visible tooltip could render before its anchor was attached or its value set. | Container insertion and value synchronization precede visibility. Main suite checks initial content; style suite checks body attachment and actual horizontal/vertical position. | No unresolved failure found. |
+| New progress styling and RTL transform utilities could alter geometry. | Physical transforms, explicit interval geometry, and suppressed progress glow/animation. Main/style suites and the section 7 desktop/mobile visual review exercise installed UI 4 styling. | No component stylesheet is required. |
+| Malformed values, missing range endpoints, duplicate ticks, and out-of-bounds highlights had no consistent contract. | Explicit validation, fallback values, sorted/deduplicated ticks with original label associations, ordered endpoints, and clipped highlight intervals. | Intentional 4.0.0 behavior changes are documented in [README](README.md#upgrading-from-3x). |
+
+### Additional issues encountered during implementation
+
+- **Inherited scrollbar gutters — fixed in section 4.** `scrollbar-gutter: stable` narrowed the track's positioning area. `overflow: clip` keeps the rounded track without reserving scrollbar space. The test page applies the inherited gutter rule and the style suite checks physical alignment.
+- **Off-step cancellation — fixed in section 3, permanent regression added in section 8.** Re-normalizing a committed tick such as 2.5 against step 1 during cancellation would change it. Cancellation restores the normalized committed snapshot. The `tickSnapBounds option` regression verifies both the input and handle return to 2.5 after a different drag preview.
+- **Overlapping form resets — fixed in section 3.** Each pending reset has its own timer so a later canceled reset cannot discard an earlier accepted reset. The form suite covers this ordering and disposal before a reset callback runs.
+- **WebKit subpixel measurement — test tolerance corrected in section 5.** Label centers can differ by approximately 0.07px. Geometry checks allow subpixel rounding while retaining explicit position/size assertions.
+- **Stale local test server — verification issue, resolved in section 5.** An older server was reused during development. Final rechecks used a fresh server; CI already disables server reuse. No server routes or bundle tests were retained beyond the component harness.
+- **Sticky demo header — corrected in section 7.** Demo section anchors now have an offset so the header does not obscure headings.
+
+### Outstanding release/setup items
+
+These are verification or service-configuration limits, rather than unresolved instances of the component defects above:
+
+- Codecov repository activation and npm trusted-publisher identity have not been verified. The prepared workflows do not configure either external service.
+- Local browser runs use Node 24. The Node 20/22 jobs and hosted GitHub workflows still need a real CI run.
+- Real touch/pen hardware remains untested; synthetic Pointer Events do not establish physical-device behavior.
+- No package has been published. Final release acceptance remains section 9 work.
 
 ## 9. Implementation sequence and acceptance
 
@@ -382,4 +402,13 @@ Sections 5 and 6 were committed as `859ca25` (`Add reference-aligned browser tes
 - Validation: lint passed; a temporary Chromium demo review exercised all method controls, all pointer event types, form submission/reset/disabled state, the theme selector, and value readouts with no page errors. Reviewed desktop/mobile screenshots and checked mobile horizontal overflow. The browser review used freshly downloaded, verified CDN assets for reproducibility. No permanent demo or bundle tests were added.
 - No additional component bugs were found. Added a demo anchor offset so section headings remain below the sticky navbar.
 
-Section 7 changes remain uncommitted. External release configuration and the final release checks remain outstanding; no package was published.
+Section 7 was committed as `5d2fb34` (`Rewrite documentation and consolidate UI 4 demos`) before starting section 8. External release configuration and the final release checks remain outstanding; no package was published.
+
+### Section 8
+
+- Reviewed every original blocker, defect, and integration risk against the current implementation and existing regression groups. Replaced the historical to-do wording with resolutions and links to supporting tests, while retaining the original evidence.
+- Added 14 regression cases within the existing main/style suites: asymmetric highlight geometry across all orientation/reversal/RTL combinations, fixed logarithmic bounds, restoring off-step committed ticks after cancellation, disabling inside slide/sliding listeners, and initial horizontal/vertical tooltip attachment and positioning. The existing linear fixed-bounds case now also exercises pointer release.
+- Validation: `npm run lint` and `CI=true npm run test:browser -- --workers=4` passed. All 175 cases passed in Chromium, Firefox, and WebKit: **525 passed**, with no failures or retries. No production-source or distribution changes were needed, and no bundle tests were added.
+- Recorded remaining physical-device and external release/CI setup limits separately from resolved component defects. No additional component defects were found in this audit.
+
+Section 8's audit and regression coverage are complete. Section 9's final release acceptance and external setup remain outstanding.

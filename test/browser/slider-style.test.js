@@ -24,6 +24,7 @@ test.describe('Slider styles', () => {
                                 UI.Slider.init(document.querySelector('#slider'), {
                                     orientation, reversed, range: true, ticks: [0, 2, 8, 10],
                                     tickLabels: ['Zero', 'Two', 'Eight', 'Ten'], tooltip: false,
+                                    rangeHighlights: [{ start: 2, end: 4, style: 'bg-danger' }],
                                 });
                             }, { orientation, reversed, direction });
                         });
@@ -46,6 +47,20 @@ test.describe('Slider styles', () => {
                             const tickBounds = await page.locator('[data-ui-value="2"]').boundingBox();
                             expect(vertical ? labelBounds.y + labelBounds.height / 2 : labelBounds.x + labelBounds.width / 2)
                                 .toBeCloseTo(vertical ? tickBounds.y + tickBounds.height / 2 : tickBounds.x + tickBounds.width / 2, 0);
+                        });
+
+                        test('positions highlights on the same axis as ticks', async ({ page }) => {
+                            const highlight = page.locator('.progress.position-relative > .bg-danger');
+                            await expect(highlight).toHaveCSS(axis, `${size * (flipped ? .6 : .2)}px`);
+                            await expect(highlight).toHaveCSS(vertical ? 'height' : 'width', `${size * .2}px`);
+                            const highlightBounds = await highlight.boundingBox();
+                            const tickBounds = await page.locator('[data-ui-value="2"]').boundingBox();
+                            const edge = vertical ?
+                                highlightBounds.y + (flipped ? highlightBounds.height : 0) :
+                                highlightBounds.x + (flipped ? highlightBounds.width : 0);
+                            expect(edge).toBeCloseTo(vertical ?
+                                tickBounds.y + tickBounds.height / 2 :
+                                tickBounds.x + tickBounds.width / 2, 1);
                         });
 
                         test('fills the selected interval between handles', async ({ page }) => {
@@ -155,5 +170,29 @@ test.describe('Slider styles', () => {
             await expect(page.getByRole('slider')).toBeFocused();
             await expect(page.getByRole('slider')).not.toHaveCSS('box-shadow', 'none');
         });
+    });
+    test.describe('tooltip positioning', () => {
+        for (const orientation of ['horizontal', 'vertical']) {
+            test(`positions an initially visible tooltip beside its handle (${orientation})`, async ({ page }) => {
+                await page.evaluate((orientation) => {
+                    const node = document.querySelector('#slider');
+                    node.value = '3';
+                    UI.Slider.init(node, { orientation, tooltip: 'always' });
+                }, orientation);
+
+                const tooltip = page.locator('body > [role="tooltip"]');
+                await expect(tooltip).toBeVisible();
+                await expect(tooltip).toHaveText('3');
+                const tooltipBounds = await tooltip.boundingBox();
+                const handleBounds = await page.getByRole('slider').boundingBox();
+                if (orientation === 'vertical') {
+                    expect(tooltipBounds.x).toBeGreaterThanOrEqual(handleBounds.x + handleBounds.width);
+                    expect(tooltipBounds.y + tooltipBounds.height / 2).toBeCloseTo(handleBounds.y + handleBounds.height / 2, 0);
+                } else {
+                    expect(tooltipBounds.y + tooltipBounds.height).toBeLessThanOrEqual(handleBounds.y);
+                    expect(tooltipBounds.x + tooltipBounds.width / 2).toBeCloseTo(handleBounds.x + handleBounds.width / 2, 0);
+                }
+            });
+        }
     });
 });
