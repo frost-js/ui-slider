@@ -1,6 +1,6 @@
 # Frost UI Slider 4 migration proposal
 
-Prepared 30 September 2026. Sections 1 and 2 have been implemented; the remaining sections are proposed work. See the implementation status below.
+Prepared 30 September 2026. Sections 1–4 have been implemented; the remaining sections are proposed work. See the implementation status below.
 
 ## Recommendation
 
@@ -262,7 +262,7 @@ Include single/range, horizontal/vertical, reversed, disabled, fractional steps/
 
 ## 8. Bugs and other issues found
 
-These findings distinguish direct source evidence from behavior that still needs browser reproduction. No full browser suite exists in Slider today, and none was run for this proposal.
+These findings record the pre-migration audit and distinguish direct source evidence from behavior that needed browser reproduction. See the implementation status below for fixes and subsequent verification. The permanent browser suite remains section 5 work.
 
 ### Confirmed migration blockers
 
@@ -333,8 +333,29 @@ Sections **1. Dependencies and package metadata** and **2. Vite and distribution
 - Added `.npmrc`, expanded `.gitignore`, updated shared ESLint configuration, and set the package version to 4.0.0 with the proposed metadata, exports, peers, development dependencies, and scripts.
 - Regenerated `package-lock.json` and ran `npx sort-package-json`. The lockfile resolves Monocart 2.13.1 under the three-day release-age policy.
 - Replaced Rollup/Terser scripts with Vite, renamed `src/wrapper.js` to `src/browser.js`, and generated all four bundles and their source maps.
-- Applied only the existing source cleanup required by the new lint rules: import order, JSDoc tags/types, and removal of a redundant initial assignment. Component behavior and prototype composition are still awaiting section 3.
+- Applied only the existing source cleanup required by the new lint rules: import order, JSDoc tags/types, and removal of a redundant initial assignment. Component behavior and prototype composition were left for section 3 at that stage.
 - Verified a clean `npm ci`, `npm run lint`, `npm run build`, and package contents with `npm pack --dry-run`. Checked generated source maps against source contents.
 - Ran local Chromium smoke checks of all four bundle variants: ESM default exports and registration use external peers; UMD adds `UI.Slider` without replacing UI, Tooltip, or fQuery.
 
-This is an intermediate migration state, **not a release-ready UI 4 component**. Slider still uses the incompatible `_node`/`_options` base fields and Tooltip `_stop()` internal described above. Bundle-loading checks do not validate construction or interaction. The Playwright dependencies and scripts are in place, but their configs and test harness await section 5; the test scripts are not yet runnable successfully. Sections 3–7, behavior regressions, and release validation remain outstanding. No package was published and no Git commit was created.
+Sections 1 and 2 were committed as **`57207ad` — Migrate package configuration and bundles to Vite** before starting the next stage.
+
+Sections **3. JavaScript migration and public behavior** and **4. Styling and Sass** were implemented on 1 October 2026:
+
+- Consolidated `Slider` into one class with static defaults/classes, private fields and methods, typed options/callback JSDoc, and UI 4's `node`/`options` getters. Removed `src/prototype/` and all prototype composition. `src/helpers.js` contains only numeric normalization and option validation functions; `src/index.js` now performs registration and export.
+- Replaced Tooltip internal calls with public methods. Tooltip content is initialized after attaching the control and before showing it; hover, focus, and drag visibility share one trigger state.
+- Replaced the old drag factory with Pointer Events and instance-owned, abortable listeners. Mouse, touch, and pen share release-coordinate handling. Cancellation and disabling restore the committed values, including snapped ticks that do not fall on a step. Disposal aborts listeners, disconnects the disabled-state observer, cancels reset callbacks, and restores the original input state. Event callbacks may dispose the component safely.
+- Added native input/change synchronization without recursive change events, deferred non-canceled form reset handling, and native/fieldset disabled-state synchronization. Each pending reset is tracked independently so a later canceled reset does not discard an earlier accepted reset.
+- Fixed zero-tick snapping, logarithmic conversion, bounds escaping during rounding, fixed-value ranges, unordered range endpoints, range tick clicks, and label lookup for unusual IDs and wrapping labels. Tick normalization retains label associations without mutating caller arrays. Missing/malformed values use `defaultValue`; invalid bounds, steps, modes, and dimensions are rejected before registration.
+- Added accessible handle names, distinct range endpoint names, orientation, and value text. Label text is read through native label associations rather than interpolated selectors; Slider does not add IDs to consumer labels.
+- Aligned handles, bars, ticks, labels, and highlights across horizontal/vertical, reversed, and RTL layouts. Horizontal RTL reverses the physical value axis once; vertical direction depends only on `reversed`. Physical transforms avoid UI's RTL-flipped `translate-middle` utility. Progress glow and animation are suppressed using UI utilities and inline geometry.
+- Found and fixed an additional layout issue during verification: inherited `scrollbar-gutter: stable` narrowed the progress track's internal positioning area. The track now uses `overflow: clip`, retaining rounded clipping without reserving scrollbar space. No Slider stylesheet or Sass pipeline was necessary.
+- Regenerated all ESM/UMD bundles and source maps. `npm run lint`, `npm run build`, numerical helper checks, and temporary browser checks in Chromium, Firefox, and WebKit passed. The temporary checks covered construction, keyboard changes, reset cancellation, off-step tick cancellation, all orientation/reversal/RTL geometry combinations, formatted tooltips, and disposal. A visual layout review used the installed UI 4 stylesheet. These checks do not replace section 5's permanent regression suite; touch-style Pointer Events were synthesized, not tested on physical devices.
+
+### Behavior details for the documentation rewrite
+
+- Initialization normalizes the native value and emits `change.ui.slider` only if that serialized value changes. `setValue` follows the same rule. Native input/change synchronization and form resets normalize without emitting an additional change event.
+- Pointer down previews the value and emits `slide.ui.slider` without a detail payload. Changed drag previews emit `sliding.ui.slider`; pointer up commits, emits `change.ui.slider` if needed, then emits `slid.ui.slider`. Sliding/slid details are a number in single mode or `{ start, end }` in range mode. Cancellation/disable rolls back the preview without emitting change/slid.
+- Left/Right follow the physical horizontal axis, including RTL/reversal. Up increases and Down decreases numerically; Home/End select endpoints. Ctrl+arrows navigate usable ticks; `lockToTicks` also uses adjacent ticks for ordinary arrow navigation. Empty usable tick lists fall back to bounded step movement.
+- Step rounding is relative to `min`, with final bounds enforced and endpoints reachable. Locked ticks take precedence over the step grid; pointer snapping may also select off-step ticks. Programmatic reversed ranges are sorted; interactive crossing hands focus to the other handle.
+
+Sections 3 and 4 remain uncommitted for review. The prematurely added test files, harness, and Playwright config were removed at the user's direction; **section 5 remains deferred**. Its scripts/dependencies from section 1 are present, but browser-test and coverage commands still await their permanent configs and suite. CI, Codecov, README/demo rewrites, and release validation also remain outstanding. No package was published.
