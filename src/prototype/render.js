@@ -72,7 +72,7 @@ export function _render() {
 /**
  * Render a progress bar.
  * @param {string} [style] The background style.
- * @return {HTMLElement} The progress bar.
+ * @returns {HTMLElement} The progress bar.
  */
 export function _renderBar(style) {
     const bar = $.create('div', {
@@ -107,7 +107,7 @@ export function _renderBar(style) {
 
 /**
  * Render a handle.
- * @return {HTMLElement} The handle.
+ * @returns {HTMLElement} The handle.
  */
 export function _renderHandle() {
     const handle = $.create('button', {

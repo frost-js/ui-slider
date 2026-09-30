@@ -1,21 +1,41 @@
 {
     "name": "@fr0st/ui-slider",
-    "version": "3.0.5",
-    "description": "FrostUI-Slider is a free, open-source Slider component for Javascript.",
+    "version": "4.0.0",
+    "private": false,
+    "description": "Single and range slider component for Frost UI with ticks, tooltips, horizontal and vertical layouts, and keyboard controls.",
     "keywords": [
-        "ui",
         "component",
+        "frost",
+        "frontend",
+        "javascript",
+        "range",
         "slider",
-        "front-end",
-        "web"
+        "ui"
     ],
     "homepage": "https://github.com/elusivecodes/FrostUI-Slider",
     "bugs": {
         "url": "https://github.com/elusivecodes/FrostUI-Slider/issues",
         "email": "elusivecodes@gmail.com"
     },
-    "main": "src/index.js",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/elusivecodes/FrostUI-Slider.git"
+    },
+    "license": "MIT",
+    "author": "Elusive <elusivecodes@gmail.com>",
     "type": "module",
+    "exports": {
+        ".": {
+            "import": "./dist/frost-ui-slider.esm.js",
+            "default": "./dist/frost-ui-slider.esm.js"
+        },
+        "./dist/*": "./dist/*",
+        "./src/*": "./src/*"
+    },
+    "main": "./dist/frost-ui-slider.esm.js",
+    "jsdelivr": "./dist/frost-ui-slider.min.js",
+    "unpkg": "./dist/frost-ui-slider.min.js",
+    "module": "./dist/frost-ui-slider.esm.js",
     "files": [
         "dist",
         "LICENSE",
@@ -23,22 +43,34 @@
         "src"
     ],
     "scripts": {
-        "build": "npm run js-compile && npm run js-minify",
-        "js-compile": "rollup --config",
-        "js-lint": "eslint",
-        "js-minify": "terser --compress passes=2 --mangle --source-map \"content=dist/frost-ui-slider.js.map\" --output dist/frost-ui-slider.min.js dist/frost-ui-slider.js"
+        "build": "vite build && vite build --mode umd",
+        "lint": "eslint",
+        "test": "npm run build && npm run test:browser",
+        "test:browser": "playwright test --forbid-only",
+        "test:coverage": "playwright test --config=playwright.coverage.config.js --forbid-only",
+        "test:headed": "playwright test --forbid-only --headed",
+        "test:ui": "playwright test --ui"
     },
-    "repository": {
-        "type": "git",
-        "url": "https://github.com/elusivecodes/FrostUI-Slider.git"
-    },
-    "author": "Elusive",
-    "license": "MIT",
+    "browserslist": [
+        "baseline newly available"
+    ],
     "devDependencies": {
-        "@fr0st/eslint-config": "^1.0.3",
-        "@rollup/plugin-node-resolve": "^16.0.1",
-        "eslint": "^9.26.0",
-        "rollup": "^4.40.2",
-        "terser": "^5.39.1"
+        "@fr0st/eslint-config": "^5.0.3",
+        "@fr0st/query": "^5.0.0",
+        "@fr0st/ui": "^4.0.0",
+        "@playwright/test": "^1.63.0",
+        "eslint": "^10.11.0",
+        "monocart-reporter": "^2.13.1",
+        "vite": "^8.3.1"
+    },
+    "peerDependencies": {
+        "@fr0st/query": "^5.0.0",
+        "@fr0st/ui": "^4.0.0"
+    },
+    "engines": {
+        "node": "^20.19.0 || ^22.13.0 || >=24"
+    },
+    "publishConfig": {
+        "access": "public"
     }
 }

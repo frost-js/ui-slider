@@ -4,7 +4,7 @@ import { Tooltip } from '@fr0st/ui';
 /**
  * Check a value against the current range, and update the active handle.
  * @param {number} value The value to check.
- * @return {object} The new start and end values.
+ * @returns {object} The new start and end values.
  */
 export function _checkRangeValue(value) {
     let start = this._startValue;
@@ -33,7 +33,7 @@ export function _checkRangeValue(value) {
 /**
  * Clamp value to nearest tick (if within bounds).
  * @param {number} value The value to check.
- * @return {number} The new value.
+ * @returns {number} The new value.
  */
 export function _checkTicks(value) {
     let closest;
@@ -56,7 +56,7 @@ export function _checkTicks(value) {
 /**
  * Clamp a value to a step-size, and between a min and max value.
  * @param {number} value The value to clamp.
- * @return {number} The clamped value.
+ * @returns {number} The clamped value.
  */
 export function _clampValue(value) {
     value = $._clamp(value, this._options.min, this._options.max);
@@ -69,7 +69,7 @@ export function _clampValue(value) {
  * Create a tooltip on an element.
  * @param {HTMLElement} element The element to attach the tooltip to.
  * @param {number} [spacing=0] Amount of spacing for the tooltip.
- * @return {UI.Tooltip} The tooltip.
+ * @returns {UI.Tooltip} The tooltip.
  */
 export function _createTooltip(element, spacing = 0) {
     let placement;
@@ -98,7 +98,7 @@ export function _createTooltip(element, spacing = 0) {
 /**
  * Convert a value to percent.
  * @param {number} value The value to convert.
- * @return {number} The percent.
+ * @returns {number} The percent.
  */
 export function _getPercent(value) {
     if (this._options.scale !== 'logarithmic') {
@@ -119,7 +119,7 @@ export function _getPercent(value) {
 /**
  * Convert a percent to value.
  * @param {number} percent The percent to convert.
- * @return {number} The value.
+ * @returns {number} The value.
  */
 export function _getValue(percent) {
     if (this._options.scale !== 'logarithmic') {
@@ -188,7 +188,7 @@ export function _refreshDisabled() {
  * Set the slider value.
  * @param {number} value The value.
  * @param {object} [options] Options for updating the value.
- * @param  {Boolean} [options.updateValue=true] Whether to update the input value.
+ * @param  {boolean} [options.updateValue=true] Whether to update the input value.
  */
 export function _setValue(value, { updateValue = true } = {}) {
     value = this._clampValue(value);
@@ -255,7 +255,7 @@ export function _setValue(value, { updateValue = true } = {}) {
  * @param {number} start The start value.
  * @param {number} end The end value.
  * @param {object} [options] Options for updating the value.
- * @param  {Boolean} [options.updateValue=true] Whether to update the input value.
+ * @param  {boolean} [options.updateValue=true] Whether to update the input value.
  */
 export function _setValueRange(start, end, { updateValue = true } = {}) {
     start = this._clampValue(start);
@@ -346,7 +346,7 @@ export function _setValueRange(start, end, { updateValue = true } = {}) {
  * @param {number} x The x position.
  * @param {number} y The y position.
  * @param {object} [options] Options for updating the value.
- * @param  {Boolean} [options.updateValue=true] Whether to update the input value.
+ * @param  {boolean} [options.updateValue=true] Whether to update the input value.
  */
 export function _updatePercent(x, y, { updateValue = true } = {}) {
     let percent;
@@ -371,7 +371,7 @@ export function _updatePercent(x, y, { updateValue = true } = {}) {
  * @param {number} x The x position.
  * @param {number} y The y position.
  * @param {object} [options] Options for updating the value.
- * @param  {Boolean} [options.updateValue=true] Whether to update the input value.
+ * @param  {boolean} [options.updateValue=true] Whether to update the input value.
  */
 export function _updatePercentRange(x, y, { updateValue = true } = {}) {
     let percent;
@@ -411,7 +411,7 @@ export function _updateTicks() {
         const value = $.getDataset(tick, 'uiValue');
         const highlight = this._options.rangeHighlights.find((range) => value >= range.start && value <= range.end);
 
-        let style = null;
+        let style;
 
         $.setAttribute(tick, { class: '' });
         $.addClass(tick, this.constructor.classes.tick);

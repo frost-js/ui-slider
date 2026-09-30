@@ -1,8 +1,8 @@
 import { initComponent } from '@fr0st/ui';
-import Slider from './slider.js';
 import { _events, _eventsRange, _eventsTooltip } from './prototype/events.js';
 import { _checkRangeValue, _checkTicks, _clampValue, _createTooltip, _getPercent, _getValue, _moveHandle, _refreshDisabled, _setValue, _setValueRange, _updatePercent, _updatePercentRange, _updateTicks } from './prototype/helpers.js';
 import { _render, _renderBar, _renderHandle, _renderRangeHighlights, _renderTicks } from './prototype/render.js';
+import Slider from './slider.js';
 
 // Slider default options
 Slider.defaults = {

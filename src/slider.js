@@ -110,7 +110,7 @@ export default class Slider extends BaseComponent {
 
     /**
      * Get the current value(s).
-     * @return {number|array} The current value(s).
+     * @returns {number|number[]} The current value(s).
      */
     getValue() {
         if (!this._options.range) {
