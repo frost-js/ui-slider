@@ -20,80 +20,76 @@ Single and range sliders for Frost UI with ticks, tooltips, logarithmic scales, 
 - Mouse, touch, pen, and keyboard interaction
 - Native form submission, reset synchronization, and disabled fieldsets
 - Native `Slider` class and `slider` fQuery plugin
-- ESM and UMD bundles with source maps and JSDoc-powered IntelliSense
-- Frost UI v4 styling without component-specific CSS or Sass
+- Existing-instance reuse with frozen resolved options
+- Prebuilt ESM and UMD bundles with source maps
+- No component-specific CSS or Sass
+- JSDoc-powered IntelliSense
 
-Explore the examples in [demo/index.html](./demo/index.html).
+Explore [the demo](./demo/index.html) for interactive examples.
 
 ## Installation
 
 ### Browser projects / bundlers
 
-Install Slider with its Frost UI v4 and fQuery v5 peers:
-
 ```bash
-npm i @fr0st/ui-slider@^4 @fr0st/ui@^4 @fr0st/query@^5
+npm i @fr0st/ui-slider
 ```
+
+Frost UI Slider's package entry point is ESM-only and requires a browser DOM. Import the default `Slider` export and the stylesheets in browser projects and bundlers.
 
 ```js
 import '@fr0st/ui/dist/frost-ui.min.css';
 import Slider from '@fr0st/ui-slider';
-
-const slider = Slider.init(document.querySelector('#volume'), {
-    min: 0,
-    max: 100,
-    step: 5,
-});
 ```
 
-The package root resolves to the compiled ESM bundle. `dist/*` and `src/*` are also available through package exports. UI and fQuery are external peer dependencies so Slider shares the application's instances.
-
-Slider requires a browser DOM. Load it on the client in server-rendered applications.
+`@fr0st/ui` and `@fr0st/query` are peer dependencies so the component shares the application's instances.
 
 ### Browser (ESM)
 
-Serve this package's `dist/` directory alongside your page. Map all three peer and transitive dependencies before importing Slider:
+The ESM bundle imports `@fr0st/ui` and `@fr0st/query`. fQuery also imports `@fr0st/core`, so map all three dependencies when loading the bundle directly in a browser:
 
 ```html
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fr0st/ui@4/dist/frost-ui.min.css">
-
-<label for="volume">Volume</label>
-<input id="volume" value="5">
-
+<link
+    rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/@fr0st/ui@latest/dist/frost-ui.min.css">
 <script type="importmap">
 {
     "imports": {
-        "@fr0st/core": "https://cdn.jsdelivr.net/npm/@fr0st/core@4/dist/frost-core.esm.min.js",
-        "@fr0st/query": "https://cdn.jsdelivr.net/npm/@fr0st/query@5/dist/fquery.esm.min.js",
-        "@fr0st/ui": "https://cdn.jsdelivr.net/npm/@fr0st/ui@4/dist/frost-ui.esm.min.js"
+        "@fr0st/core": "https://cdn.jsdelivr.net/npm/@fr0st/core@latest/dist/frost-core.esm.min.js",
+        "@fr0st/query": "https://cdn.jsdelivr.net/npm/@fr0st/query@latest/dist/fquery.esm.min.js",
+        "@fr0st/ui": "https://cdn.jsdelivr.net/npm/@fr0st/ui@latest/dist/frost-ui.esm.min.js"
     }
 }
 </script>
 <script type="module">
-    import Slider from './dist/frost-ui-slider.esm.min.js';
-
-    Slider.init(document.querySelector('#volume'));
+    import Slider from 'https://cdn.jsdelivr.net/npm/@fr0st/ui-slider@latest/dist/frost-ui-slider.esm.min.js';
 </script>
 ```
 
 ### Browser (UMD)
 
-Load Frost UI's all-in-one browser bundle before the local Slider bundle:
+Load the bundles from your own copy or a CDN:
 
 ```html
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fr0st/ui@4/dist/frost-ui.min.css">
-
-<label for="volume">Volume</label>
-<input id="volume" value="5">
-
-<script src="https://cdn.jsdelivr.net/npm/@fr0st/ui@4/dist/frost-ui-bundle.min.js"></script>
-<script src="./dist/frost-ui-slider.min.js"></script>
+<link
+    rel="stylesheet"
+    href="/path/to/dist/frost-ui.min.css">
+<script src="/path/to/dist/frost-ui-bundle.min.js"></script>
+<script src="/path/to/dist/frost-ui-slider.min.js"></script>
+<!-- or -->
+<link
+    rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/@fr0st/ui@latest/dist/frost-ui.min.css">
+<script src="https://cdn.jsdelivr.net/npm/@fr0st/ui@latest/dist/frost-ui-bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@fr0st/ui-slider@latest/dist/frost-ui-slider.min.js"></script>
 <script>
-    const slider = UI.Slider.init(document.querySelector('#volume'));
+    const { Slider } = globalThis.UI;
 </script>
 ```
 
-The UI bundle supplies `UI` and `fQuery`; Slider adds `UI.Slider` to the existing UI object. Do not load a separate fQuery script alongside the all-in-one UI bundle. With the standalone UI build, load fQuery, UI, and Slider in that order.
+The UMD bundle adds `Slider` to the existing `globalThis.UI` object. Load Frost UI's all-in-one bundle first; it supplies the `UI` and `fQuery` globals.
+
+The package root resolves to the prebuilt ESM bundle. Published files under `dist/` and `src/` are also available through matching package subpaths.
 
 ## Usage
 
@@ -118,41 +114,49 @@ price.setValue(25, 75);
 console.log(price.getValue()); // [25, 75]
 ```
 
-Use a text input for ranges so the browser preserves both endpoints and their separator. Calling `Slider.init()` again for the same input returns the existing instance. Dispose it before initializing with different options.
+Use a text input for ranges so the browser preserves both endpoints and their separator.
 
 ## Options
 
-Options are resolved in this order: component defaults, the input's `data-ui-*` attributes, then explicit initialization options. Resolved `instance.options` are frozen. `Slider.defaults` and `Slider.classes` may be customized before creating instances.
+Options are resolved in this order:
+
+1. Component defaults
+2. The element's `data-ui-*` attributes
+3. Options passed to `Slider.init()`
+
+Resolved `instance.options` are shallow-frozen.
+
+`Slider.defaults` and `Slider.classes` may be customized before creating instances.
 
 | Option | Type | Default | Description |
 | --- | --- | --- | --- |
-| `min` | `number` | `0` | Inclusive minimum. |
-| `max` | `number` | `10` | Inclusive maximum. Equal bounds produce a fixed-value slider. |
 | `defaultValue` | `number` | `0` | Fallback for missing or invalid values, including missing range endpoints. |
-| `step` | `number` | `1` | Positive step, measured from `min`. |
-| `orientation` | `'horizontal' \| 'vertical'` | `'horizontal'` | Track orientation. |
-| `scale` | `'linear' \| 'logarithmic'` | `'linear'` | Value-to-position scale. |
-| `valueText` | `(value: number) => string \| number` | `(value) => value` | Accessible handle text and single-value tooltip content. |
-| `rangeText` | `(start: number, end: number) => string \| number` | ``(start, end) => `${start} - ${end}` `` | Range tooltip content. |
-| `tickSize` | `number` | `30` | Tick diameter in pixels. |
+| `disabledOpacity` | `number` | `0.5` | Disabled container opacity between 0 and 1. |
 | `handleSize` | `number` | `20` | Handle size across the track, in pixels. |
 | `handleSizeRatio` | `number` | `0.75` | Handle length along the track relative to `handleSize`. |
+| `high` | `string \| null` | `null` | Background class above the selected range. |
+| `lockToTicks` | `boolean` | `false` | Snap all value updates to usable ticks. |
+| `low` | `string \| null` | `null` | Background class below the selected range. |
+| `max` | `number` | `10` | Inclusive maximum. Equal bounds produce a fixed-value slider. |
+| `min` | `number` | `0` | Inclusive minimum. |
+| `orientation` | `'horizontal' \| 'vertical'` | `'horizontal'` | Track orientation. |
+| `range` | `boolean` | `false` | Render two independently focusable handles. |
+| `rangeHighlights` | `object[]` | `[]` | Intervals with `start`, `end`, and an optional background `style` class. |
+| `rangeSeparator` | `string` | `','` | Nonempty separator used in the original input's value. |
+| `rangeText` | `(start: number, end: number) => string \| number` | ``(start, end) => `${start} - ${end}` `` | Range tooltip content. |
+| `reversed` | `boolean` | `false` | Reverse the physical value axis. |
+| `scale` | `'linear' \| 'logarithmic'` | `'linear'` | Value-to-position scale. |
+| `selection` | `string` | `'bg-primary'` | Selected interval background class. |
 | `sliderSize` | `number` | `10` | Track thickness in pixels. |
-| `verticalHeight` | `number` | `200` | Vertical track height in pixels. |
+| `step` | `number` | `1` | Positive step, measured from `min`. |
+| `tickLabels` | `(string \| number)[]` | `[]` | Labels associated with the original tick array order. |
+| `ticks` | `number[]` | `[]` | Tick values; finite in-bounds values are sorted and deduplicated. |
+| `tickSize` | `number` | `30` | Tick diameter in pixels. |
+| `tickSnapBounds` | `number` | `0` | Inclusive pointer snapping distance in value units. |
 | `tooltip` | `false \| 'show' \| 'always'` | `'show'` | Hide, show on hover/focus/drag, or keep visible while enabled. |
 | `tooltipPlacement` | `string \| null` | `null` | UI Tooltip placement; defaults to top horizontally and right vertically. |
-| `low` | `string \| null` | `null` | Background class below the selected range. |
-| `selection` | `string` | `'bg-primary'` | Selected interval background class. |
-| `high` | `string \| null` | `null` | Background class above the selected range. |
-| `ticks` | `number[]` | `[]` | Tick values; finite in-bounds values are sorted and deduplicated. |
-| `tickLabels` | `(string \| number)[]` | `[]` | Labels associated with the original tick array order. |
-| `tickSnapBounds` | `number` | `0` | Inclusive pointer snapping distance in value units. |
-| `lockToTicks` | `boolean` | `false` | Snap all value updates to usable ticks. |
-| `rangeHighlights` | `object[]` | `[]` | Intervals with `start`, `end`, and an optional background `style` class. |
-| `range` | `boolean` | `false` | Render two independently focusable handles. |
-| `rangeSeparator` | `string` | `','` | Nonempty separator used in the original input's value. |
-| `reversed` | `boolean` | `false` | Reverse the physical value axis. |
-| `disabledOpacity` | `number` | `0.5` | Disabled container opacity between 0 and 1. |
+| `valueText` | `(value: number) => string \| number` | `(value) => value` | Accessible handle text and single-value tooltip content. |
+| `verticalHeight` | `number` | `200` | Vertical track height in pixels. |
 
 Values accept finite numbers and numeric strings. Missing, empty, or invalid values use `defaultValue`; an invalid default falls back to `min`. Values are rounded relative to `min` and clamped after rounding, keeping both endpoints reachable even when the step does not divide the interval. Programmatic range endpoints are sorted. During interaction, crossing hands control and focus to the other handle.
 
@@ -180,7 +184,7 @@ Formatter callbacks run with the Slider instance as `this` when declared as ordi
 
 ## Data attributes
 
-Use kebab-case `data-ui-*` names for options. Supply arrays and objects as JSON; pass formatter functions in JavaScript:
+Use kebab-case `data-ui-*` attributes for serializable options. Arrays and objects use JSON. Supply callbacks and DOM nodes through JavaScript.
 
 ```html
 <input
@@ -198,16 +202,19 @@ Use kebab-case `data-ui-*` names for options. Supply arrays and objects as JSON;
 ```
 
 ```js
+import $ from '@fr0st/query';
+import '@fr0st/ui-slider';
+
 $('[data-ui-toggle="slider"]').slider();
 ```
 
-`data-ui-toggle="slider"` is an initialization selector; it does not initialize the component by itself. Other examples include `data-ui-default-value="5"`, `data-ui-lock-to-ticks="true"`, `data-ui-range-separator=":"`, and `data-ui-tooltip="false"`.
+Data attributes configure options; they do not initialize Slider by themselves. Initialize the component through the class or fQuery plugin. Changing an option's data attribute after initialization does not reconfigure the existing instance.
 
 ## Methods
 
 | Method | Returns | Description |
 | --- | --- | --- |
-| `Slider.init(node, options?)` | `Slider` | Create an instance or return the existing one. |
+| `Slider.init(node, options?)` | `Slider` | Return the existing instance for an element or create one. |
 | `disable()` | `void` | Disable the input and handles, hide tooltips, and cancel an active gesture. |
 | `dispose()` | `void` | Remove generated markup, tooltips, listeners, observers, and registration. |
 | `enable()` | `void` | Enable the input and handles, subject to disabled ancestor fieldsets. |
@@ -222,20 +229,28 @@ price.enable();
 price.dispose();
 ```
 
-For a range, pass two arguments to `setValue`; a missing endpoint uses `defaultValue`. The instance exposes the original input as `node` and its configuration as `options`; both become `null` after disposal.
+For a range, pass two arguments to `setValue`; a missing endpoint uses `defaultValue`.
 
-Disposal restores the input's previous hidden class and `tabindex`, preserves other classes and the committed value, and cancels pending reset work. Repeated disposal is safe. Initialize a new instance before using other methods again.
+Disposal restores the input's previous hidden class and `tabindex`, preserves other classes and the committed value, and cancels pending reset work.
+
+## Lifecycle
+
+Calling `Slider.init()` again for the same element returns its existing instance. Dispose the current instance before reinitializing with different options.
+
+An instance exposes its original element as `instance.node` and its shallow-frozen resolved configuration as `instance.options`. Both become `null` after disposal.
+
+`dispose()` releases resources owned by the component and removes its registered instance. Repeated disposal is safe and does not affect a new instance initialized on the same element. Use a new instance before calling other methods after disposal.
 
 ## Events
 
 Events originate from the original input through fQuery:
 
-| Event | `event.detail` | When it fires |
-| --- | --- | --- |
-| `change.ui.slider` | No custom payload | The serialized input value changes during initialization, a setter, keyboard input, or a completed pointer gesture. |
-| `slide.ui.slider` | No custom payload | A pointer gesture begins, after the initial preview is rendered. |
-| `sliding.ui.slider` | `number` or `{ start, end }` | Pointer movement changes the preview. |
-| `slid.ui.slider` | `number` or `{ start, end }` | A pointer gesture finishes and commits. |
+| Event | Description |
+| --- | --- |
+| `change.ui.slider` | The serialized input value changes during initialization, a setter, keyboard input, or a completed pointer gesture. |
+| `slide.ui.slider` | A pointer gesture begins, after the initial preview is rendered. |
+| `sliding.ui.slider` | Pointer movement changes the preview. `event.detail` is a number or `{ start, end }`. |
+| `slid.ui.slider` | A pointer gesture finishes and commits. `event.detail` is a number or `{ start, end }`. |
 
 ```js
 import $ from '@fr0st/query';
@@ -256,7 +271,7 @@ Native input/change synchronization and form resets do not emit an additional co
 
 ## fQuery API
 
-Importing Slider registers the `slider` QuerySet method:
+Importing Slider registers `slider` on `fQuery.QuerySet`:
 
 ```js
 import $ from '@fr0st/query';
@@ -270,7 +285,7 @@ $('#price').slider('enable');
 $('#price').slider('dispose');
 ```
 
-An options object initializes every matched input. A public method name invokes that method on matched instances with the remaining arguments. The first instance or method result is returned.
+Pass an options object to initialize every matched element, or pass a public method name followed by its arguments. The first component or method result is returned.
 
 ## Accessibility
 
@@ -288,7 +303,7 @@ Handles expose `role="slider"`, orientation, min/max/current values, and formatt
 
 With `lockToTicks`, ordinary arrows navigate adjacent ticks; if no usable ticks exist, ordinary arrows use `step`. Range crossing transfers focus to the other endpoint. Focusing the original input redirects to the first handle, including native form-validation focus.
 
-## Forms and reset
+## Forms
 
 The original input's `name` and committed value are submitted normally. Ranges serialize as `start,end` by default; `rangeSeparator` customizes that text. Native validation remains on the original input. Disabled inputs and inputs in disabled fieldsets are excluded from `FormData`.
 
@@ -306,13 +321,15 @@ Form and ancestor-fieldset associations are captured at initialization. Dispose 
 
 ## Themes and RTL
 
+Frost UI follows the user's preferred color scheme by default. Set `data-ui-theme="light"` or `data-ui-theme="dark"` on the document or an ancestor to select a theme explicitly.
+
 Slider uses Frost UI's progress, background, border, focus-ring, positioning, and visibility utilities. Load the UI stylesheet; no separate Slider CSS is needed.
 
 UI follows the system color scheme by default. Set `data-ui-theme="light"` or `data-ui-theme="dark"` on the document to choose explicitly. Tooltips are appended to the document body, so a document-level theme also covers them.
 
 Direction is inherited from the document or an ancestor. An input's own `dir` is copied to its generated container at initialization. Horizontal RTL reverses the value axis once, and `reversed: true` reverses it again. Vertical value direction depends on `reversed`, not RTL. Initialize after choosing the layout direction.
 
-## Upgrading from 3.x
+## Migrating from 3.x
 
 - Use Frost UI 4 and fQuery 5. The package root now resolves to built ESM; browser consumers can continue using the UMD filenames and `UI.Slider`.
 - Replace imports from `src/prototype/*` and access to underscore internals with the public API. Component state is private and resolved options are frozen.
@@ -323,26 +340,21 @@ Direction is inherited from the document or an ancestor. An input's own `dir` is
 
 ## Development
 
-Use Node.js `^20.19.0 || ^22.13.0 || >=24`:
+Install dependencies with `npm ci`, then install Playwright browsers with `npx playwright install --with-deps`.
 
 ```bash
-npm ci
-npx playwright install --with-deps
-npm run lint
 npm test
+npm run lint
+npm run build
 ```
 
-`npm test` builds all JavaScript bundles and runs Chromium, Firefox, and WebKit. `npm run build` builds ESM/UMD, minified variants, and source maps. The `dist/` outputs are tracked.
+`npm test` rebuilds the bundles, then runs the Playwright suite in Chromium, Firefox, and WebKit. `npm run test:browser` runs the suite against the existing bundles, so rebuild after changing source files.
 
-`npm run test:browser`, `npm run test:headed`, and `npm run test:ui` use existing bundles; rebuild after changing source. After building, `npm run test:coverage` runs Chromium coverage and writes HTML and LCOV reports to `coverage/`.
+After building, `npm run test:coverage` runs Chromium tests and writes coverage reports to `coverage/`.
 
-To view the demo, serve the repository root over HTTP and open `/demo/`. For example, with Python installed:
+`npm run test:headed` and `npm run test:ui` also use the existing bundles and open headed browsers or the Playwright UI.
 
-```bash
-python3 -m http.server 8000
-```
-
-Then open `http://localhost:8000/demo/`. The demo loads UI 4 from jsDelivr and Slider from the local `dist/` directory.
+To view the demo, open `demo/index.html` in your browser after building.
 
 ## License
 
