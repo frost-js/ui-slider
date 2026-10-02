@@ -1,5 +1,15 @@
-main > section {
-    scroll-margin-top: 5rem;
+section[id],
+.demo-anchor {
+    scroll-margin-top: 6rem;
+}
+
+.demo-event-log {
+    height: 18rem;
+    overflow-y: auto;
+}
+
+.demo-event-log > :last-child {
+    margin-block-end: 0;
 }
 
 .demo-slider {
@@ -8,8 +18,4 @@ main > section {
 
 .demo-slider-vertical {
     margin: 2rem 3rem 2rem 1rem;
-}
-
-.demo-event-log {
-    height: 18rem;
 }

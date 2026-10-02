@@ -7,8 +7,8 @@
     <title>Frost UI Slider Demo</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fr0st/ui@4/dist/frost-ui.min.css">
     <link rel="stylesheet" href="assets/demo.css">
-    <script src="https://cdn.jsdelivr.net/npm/@fr0st/ui@4/dist/frost-ui-bundle.min.js"></script>
-    <script src="../dist/frost-ui-slider.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@fr0st/ui@4/dist/frost-ui-bundle.min.js" defer></script>
+    <script src="../dist/frost-ui-slider.js" defer></script>
     <script defer src="assets/demo.js"></script>
 </head>
 
@@ -35,7 +35,7 @@
             <div class="row g-0 align-items-stretch">
                 <div class="col-lg-7 d-flex align-items-center bg-ambient">
                     <div class="p-4 p-md-5">
-                        <span class="badge bg-primary-subtle text-primary-subtle mb-3">Frost UI v4 component</span>
+                        <span class="badge bg-primary-subtle text-primary-subtle mb-3">Frost UI component</span>
                         <h1 class="display-2 mb-4">Choose a value.<br><span class="text-gradient">Find your range.</span></h1>
                         <p class="lead text-body-secondary mb-4">Explore single values, two-handle ranges, tick marks, logarithmic scales, and keyboard controls.</p>
                         <nav class="d-flex flex-wrap gap-2" aria-label="Demo sections">
@@ -441,8 +441,8 @@
                             <button class="btn btn-outline-primary" type="button" data-demo-method="getValue">Get value</button>
                             <button class="btn btn-outline-secondary" type="button" data-demo-method="disable">Disable</button>
                             <button class="btn btn-outline-secondary" type="button" data-demo-method="enable">Enable</button>
-                            <button class="btn btn-outline-danger" type="button" data-demo-method="dispose">Dispose</button>
-                            <button class="btn btn-outline-success" type="button" data-demo-method="init">Initialize</button>
+                            <button class="btn btn-outline-danger ripple" type="button" data-demo-method="dispose">Dispose</button>
+                            <button class="btn btn-primary ripple" type="button" data-demo-method="init">Init</button>
                         </div>
                         <p class="small text-body-secondary mt-3 mb-0" id="method-output" role="status">Ready.</p>
                     </div>
@@ -451,9 +451,9 @@
                     <div class="card card-body h-100 p-4">
                         <div class="d-flex justify-content-between align-items-center mb-3">
                             <h3 class="h5 mb-0" id="event-log-label">Event log</h3>
-                            <button class="btn btn-outline-secondary btn-sm" type="button" id="clear-log">Clear log</button>
+                            <button class="btn btn-outline-secondary btn-sm ripple" type="button" id="clear-log">Clear log</button>
                         </div>
-                        <pre class="demo-event-log small bg-body-tertiary border rounded p-3 overflow-auto mb-0" id="event-log" role="log" aria-labelledby="event-log-label" aria-live="off"></pre>
+                        <div class="demo-event-log bg-body-tertiary border rounded p-3 mb-0" id="event-log" role="log" aria-label="Slider events" aria-live="off" aria-relevant="additions"></div>
                     </div>
                 </div>
             </div>
@@ -512,12 +512,14 @@
             </form>
         </section>
 
-        <footer class="border-top pt-4 text-body-secondary small">
-            <a href="../README.md">Documentation</a>
-            <span class="mx-2" aria-hidden="true">·</span>
-            <a href="https://github.com/elusivecodes/FrostUI-Slider">Source on GitHub</a>
-        </footer>
     </main>
+
+    <footer class="border-top bg-glass">
+        <div class="container py-4 d-flex flex-wrap justify-content-between gap-2">
+            <span class="text-body-secondary">Frost UI Slider</span>
+            <a href="https://github.com/elusivecodes/FrostUI-Slider">View the repository</a>
+        </div>
+    </footer>
 </body>
 
 </html>

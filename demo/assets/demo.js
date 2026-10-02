@@ -2,38 +2,49 @@ const $ = globalThis.fQuery;
 const { Slider } = globalThis.UI;
 const themeKey = 'frostui-slider-demo-theme';
 
-/**
- * Applies the chosen document theme and updates the selector.
- * @param {string} theme The theme name.
- */
 const setTheme = (theme) => {
     if (theme === 'system') {
-        document.documentElement.removeAttribute('data-ui-theme');
+        $(document.documentElement).removeAttribute('data-ui-theme');
     } else {
-        document.documentElement.setAttribute('data-ui-theme', theme);
+        $(document.documentElement).setAttribute('data-ui-theme', theme);
     }
+
     $('[data-demo-theme]').setValue(theme);
 };
 
-/** Refreshes the committed-value readouts. */
-const refreshValues = () => {
-    for (const output of document.querySelectorAll('[data-demo-value-for]')) {
-        output.textContent = document.getElementById(output.dataset.demoValueFor).value;
+const logEvent = (message, className = 'text-body-secondary') => {
+    const log = $.findOne('#event-log');
+    const entry = $.create('div', {
+        class: ['small', 'font-monospace', 'py-2', 'border-bottom', className],
+        text: message,
+    });
+
+    $.append(log, entry);
+
+    while ($.children(log).length > 50) {
+        $.remove($.child(log)[0]);
     }
+
+    $.setScrollY(log, $.height(log, { boxSize: $.SCROLL_BOX }));
 };
 
 $.ready(() => {
     let storedTheme;
+
     try {
         storedTheme = localStorage.getItem(themeKey);
     } catch {
         // The demo remains usable when browser storage is unavailable.
     }
-    setTheme(['light', 'dark'].includes(storedTheme) ? storedTheme : 'system');
+
+    const requestedTheme = new URLSearchParams(location.search).get('theme');
+    const initialTheme = requestedTheme || storedTheme;
+    setTheme(['light', 'dark'].includes(initialTheme) ? initialTheme : 'system');
 
     $('[data-demo-theme]').addEvent('change', (event) => {
-        const theme = event.currentTarget.value;
+        const theme = $.getValue(event.currentTarget);
         setTheme(theme);
+
         try {
             if (theme === 'system') {
                 localStorage.removeItem(themeKey);
@@ -45,22 +56,29 @@ $.ready(() => {
         }
     });
 
+    $('#clear-log').addEvent('click', () => {
+        $('#event-log').empty();
+    });
+
+    /** Refreshes the committed-value readouts. */
+    const refreshValues = () => {
+        for (const output of $.find('[data-demo-value-for]')) {
+            $.setText(output, $.getValue($.findOneById($.getDataset(output, 'demoValueFor'))));
+        }
+    };
+
     $('[data-ui-toggle="slider"]').addEvent('change.ui.slider', refreshValues);
     for (const name of ['slide', 'sliding', 'change', 'slid']) {
         $.addEvent('#methods-slider', `${name}.ui.slider`, (event) => {
-            const log = document.querySelector('#event-log');
             const detail = name === 'sliding' || name === 'slid' ?
                 `; value=${JSON.stringify(event.detail)}` : '';
-            const entry = `${name}.ui.slider${detail}; input="${event.currentTarget.value}"`;
-            const lines = log.textContent ? log.textContent.split('\n') : [];
-            log.textContent = [...lines.slice(-99), entry].join('\n');
-            log.scrollTop = log.scrollHeight;
+            logEvent(`${name}.ui.slider${detail}; input="${$.getValue(event.currentTarget)}"`);
         });
     }
 
-    for (const node of document.querySelectorAll('[data-ui-toggle="slider"]')) {
+    for (const node of $.find('[data-ui-toggle="slider"]')) {
         let options = {};
-        switch (node.id) {
+        switch ($.getProperty(node, 'id')) {
             case 'formatted':
                 options = { valueText: (value) => `${value}%` };
                 break;
@@ -79,52 +97,51 @@ $.ready(() => {
     refreshValues();
 
     $('[data-demo-method]').addEvent('click', (event) => {
-        const method = event.currentTarget.dataset.demoMethod;
-        const node = document.querySelector('#methods-slider');
+        const method = $.getDataset(event.currentTarget, 'demoMethod');
+        const node = $.findOne('#methods-slider');
         const instance = method === 'dispose' ? $.getData(node, 'slider') : Slider.init(node);
-        const output = document.querySelector('#method-output');
+        const output = $.findOne('#method-output');
 
         switch (method) {
             case 'init':
-                output.textContent = 'Initialized.';
+                $.setText(output, 'Initialized.');
                 break;
             case 'dispose':
                 if (instance) {
                     instance.dispose();
-                    output.textContent = 'Disposed; the original input is restored.';
+                    $.setText(output, 'Disposed; the original input is restored.');
                 } else {
-                    output.textContent = 'Already disposed.';
+                    $.setText(output, 'Already disposed.');
                 }
                 break;
             case 'disable':
                 instance.disable();
-                output.textContent = 'Disabled.';
+                $.setText(output, 'Disabled.');
                 break;
             case 'enable':
                 instance.enable();
-                output.textContent = 'Enabled.';
+                $.setText(output, 'Enabled.');
                 break;
             case 'getValue':
-                output.textContent = `Current value: ${JSON.stringify(instance.getValue())}`;
+                $.setText(output, `Current value: ${JSON.stringify(instance.getValue())}`);
                 break;
             case 'setValue': {
-                const start = document.querySelector('#method-start').valueAsNumber;
-                const end = document.querySelector('#method-end').valueAsNumber;
+                const start = $.getProperty($.findOne('#method-start'), 'valueAsNumber');
+                const end = $.getProperty($.findOne('#method-end'), 'valueAsNumber');
                 if (!Number.isFinite(start) || !Number.isFinite(end)) {
-                    output.textContent = 'Enter both numeric endpoints.';
+                    $.setText(output, 'Enter both numeric endpoints.');
                     break;
                 }
                 instance.setValue(start, end);
-                output.textContent = `Value set to ${JSON.stringify(instance.getValue())}.`;
+                $.setText(output, `Value set to ${JSON.stringify(instance.getValue())}.`);
                 break;
             }
         }
         refreshValues();
     });
 
-    $('#clear-log').addEvent('click', () => $.setText('#event-log', ''));
     $('#disable-fields').addEvent('change', (event) => {
-        document.querySelector('#form-fields').disabled = event.currentTarget.checked;
+        $.setProperty($.findOne('#form-fields'), 'disabled', $.getProperty(event.currentTarget, 'checked'));
     });
     $('#slider-form').addEvent('submit', (event) => {
         event.preventDefault();
@@ -135,7 +152,7 @@ $.ready(() => {
     });
     $('#slider-form').addEvent('reset', () => {
         setTimeout(() => {
-            document.querySelector('#form-fields').disabled = document.querySelector('#disable-fields').checked;
+            $.setProperty($.findOne('#form-fields'), 'disabled', $.getProperty($.findOne('#disable-fields'), 'checked'));
             refreshValues();
             $.setText('#form-output', 'Defaults restored: volume=60; window=20:80.');
         }, 0);
