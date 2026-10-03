@@ -1,17 +1,18 @@
 /**
- * Converts a finite numeric value, using a fallback for missing or invalid input.
- * @param {*} value The input value.
+ * Parses a finite numeric value, using a fallback for missing or invalid input.
+ * @param {*} value The value to parse.
  * @param {number} fallback The fallback value.
- * @returns {number} The finite number.
+ * @returns {number} The parsed value or fallback.
  */
-export function toNumber(value, fallback) {
+export function parseNumber(value, fallback) {
     if (!['number', 'string'].includes(typeof value) || `${value}`.trim() === '') {
         return fallback;
     }
 
     const number = Number(value);
+
     return Number.isFinite(number) ? number : fallback;
-};
+}
 
 /**
  * Normalizes a value to a min-anchored step while keeping endpoints reachable.
@@ -23,7 +24,7 @@ export function toNumber(value, fallback) {
  * @returns {number} The bounded value.
  */
 export function clampValue(value, min, max, step, fallback) {
-    value = Math.max(min, Math.min(max, toNumber(value, fallback)));
+    value = Math.max(min, Math.min(max, parseNumber(value, fallback)));
     if (value === min || value === max) {
         return value;
     }
@@ -31,7 +32,7 @@ export function clampValue(value, min, max, step, fallback) {
     const rounded = min + Math.round((value - min) / step) * step;
     // Remove arithmetic noise without imposing a fixed number of decimal places.
     return Math.max(min, Math.min(max, Number(rounded.toPrecision(15))));
-};
+}
 
 /**
  * Converts a value to a percentage, including fixed and shifted logarithmic ranges.
@@ -49,7 +50,7 @@ export function getPercent(value, min, max, logarithmic) {
     return 100 * (logarithmic ?
         Math.log1p(value - min) / Math.log1p(max - min) :
         (value - min) / (max - min));
-};
+}
 
 /**
  * Converts a percentage back to a value.
@@ -71,7 +72,7 @@ export function getValue(percent, min, max, logarithmic) {
     return min + (logarithmic ?
         Math.expm1(Math.log1p(max - min) * percent / 100) :
         (max - min) * percent / 100);
-};
+}
 
 /**
  * Validates and normalizes numeric component options before registration.
@@ -83,7 +84,7 @@ export function getValue(percent, min, max, logarithmic) {
 export function validateOptions(options) {
     const result = { ...options };
     for (const key of ['min', 'max', 'step', 'tickSize', 'handleSize', 'handleSizeRatio', 'sliderSize', 'verticalHeight', 'tickSnapBounds', 'disabledOpacity']) {
-        result[key] = toNumber(result[key], NaN);
+        result[key] = parseNumber(result[key], NaN);
         if (!Number.isFinite(result[key])) {
             throw new RangeError(`Slider ${key} must be finite.`);
         }
@@ -97,17 +98,24 @@ export function validateOptions(options) {
             throw new RangeError(`Slider ${key} must be positive.`);
         }
     }
-    if (result.tickSnapBounds < 0 || result.disabledOpacity < 0 || result.disabledOpacity > 1 ||
+    if (
+        result.tickSnapBounds < 0 ||
+        result.disabledOpacity < 0 ||
+        result.disabledOpacity > 1 ||
         !['horizontal', 'vertical'].includes(result.orientation) ||
         !['linear', 'logarithmic'].includes(result.scale) ||
         ![false, 'show', 'always'].includes(result.tooltip) ||
-        typeof result.rangeSeparator !== 'string' || !result.rangeSeparator.length) {
+        typeof result.rangeSeparator !== 'string' ||
+        !result.rangeSeparator.length
+    ) {
         throw new RangeError('Invalid Slider mode, separator, snap bounds, or opacity.');
     }
     if (typeof result.valueText !== 'function' || typeof result.rangeText !== 'function') {
         throw new TypeError('Slider valueText and rangeText must be functions.');
     }
 
-    result.defaultValue = toNumber(result.defaultValue, result.min);
+    result.defaultValue = parseNumber(result.defaultValue, result.min);
     return result;
-};
+}
+
+export { parseNumber as toNumber };

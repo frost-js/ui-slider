@@ -35,12 +35,12 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 
 //#region src/helpers.js
 /**
-	* Converts a finite numeric value, using a fallback for missing or invalid input.
-	* @param {*} value The input value.
+	* Parses a finite numeric value, using a fallback for missing or invalid input.
+	* @param {*} value The value to parse.
 	* @param {number} fallback The fallback value.
-	* @returns {number} The finite number.
+	* @returns {number} The parsed value or fallback.
 	*/
-	function toNumber(value, fallback) {
+	function parseNumber(value, fallback) {
 		if (!["number", "string"].includes(typeof value) || `${value}`.trim() === "") return fallback;
 		const number = Number(value);
 		return Number.isFinite(number) ? number : fallback;
@@ -55,7 +55,7 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 	* @returns {number} The bounded value.
 	*/
 	function clampValue(value, min, max, step, fallback) {
-		value = Math.max(min, Math.min(max, toNumber(value, fallback)));
+		value = Math.max(min, Math.min(max, parseNumber(value, fallback)));
 		if (value === min || value === max) return value;
 		const rounded = min + Math.round((value - min) / step) * step;
 		return Math.max(min, Math.min(max, Number(rounded.toPrecision(15))));
@@ -107,7 +107,7 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 			"tickSnapBounds",
 			"disabledOpacity"
 		]) {
-			result[key] = toNumber(result[key], NaN);
+			result[key] = parseNumber(result[key], NaN);
 			if (!Number.isFinite(result[key])) throw new RangeError(`Slider ${key} must be finite.`);
 		}
 		if (result.min > result.max || !Number.isFinite(result.max - result.min)) throw new RangeError("Slider bounds must form a finite ascending interval.");
@@ -125,7 +125,7 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 			"always"
 		].includes(result.tooltip) || typeof result.rangeSeparator !== "string" || !result.rangeSeparator.length) throw new RangeError("Invalid Slider mode, separator, snap bounds, or opacity.");
 		if (typeof result.valueText !== "function" || typeof result.rangeText !== "function") throw new TypeError("Slider valueText and rangeText must be functions.");
-		result.defaultValue = toNumber(result.defaultValue, result.min);
+		result.defaultValue = parseNumber(result.defaultValue, result.min);
 		return result;
 	}
 
@@ -248,8 +248,8 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 			});
 			super(node, settings);
 			this.#hidden = _fr0st_query.default.hasClass(node, this.constructor.classes.hide);
-			this.#tabIndex = node.getAttribute("tabindex");
-			this.#label = Array.from(node.labels || [], (label) => label.textContent.trim()).join(" ");
+			this.#tabIndex = _fr0st_query.default.getAttribute(node, "tabindex");
+			this.#label = Array.from(node.labels || [], (label) => _fr0st_query.default.getText(label).trim()).join(" ");
 			try {
 				this.#normalizeTicks();
 				this.#render();
@@ -261,9 +261,11 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 				throw error;
 			}
 		}
-		/** Disables the input and stops any active gesture. */
+		/**
+		* Disables the input and stops any active gesture.
+		*/
 		disable() {
-			this.node.disabled = true;
+			_fr0st_query.default.setProperty(this.node, { disabled: true });
 			this.#cancelDrag();
 			if (this.node) this.#refreshDisabled();
 		}
@@ -298,9 +300,11 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 			this.#values = [];
 			super.dispose();
 		}
-		/** Enables the input and generated handles. */
+		/**
+		* Enables the input and generated handles.
+		*/
 		enable() {
-			this.node.disabled = false;
+			_fr0st_query.default.setProperty(this.node, { disabled: false });
 			this.#refreshDisabled();
 		}
 		/**
@@ -333,14 +337,16 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 			values[active] = value;
 			if (this.#active !== active) {
 				this.#active = active;
-				this.#handles[active].focus();
+				_fr0st_query.default.focus(this.#handles[active]);
 			}
 			if (this.node) this.#setValues(values, {
 				commit,
 				normalized: true
 			});
 		}
-		/** Rolls back a canceled gesture to the native committed value. */
+		/**
+		* Rolls back a canceled gesture to the native committed value.
+		*/
 		#cancelDrag() {
 			if (!this.#drag) return;
 			this.#dragController?.abort();
@@ -360,8 +366,8 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 		#commit(emit) {
 			if (this.#drag) this.#drag.values = [...this.#values];
 			const value = this.#values.join(this.options.rangeSeparator);
-			if (value === this.node.value) return;
-			this.node.value = value;
+			if (value === _fr0st_query.default.getValue(this.node)) return;
+			_fr0st_query.default.setValue(this.node, value);
 			if (emit) {
 				this.#syncing = true;
 				try {
@@ -400,7 +406,7 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 				const previousCenter = vertical ? previous.top + previous.height / 2 : previous.left + previous.width / 2;
 				return Math.abs(coordinate - center) < Math.abs(coordinate - previousCenter) ? index : closest;
 			}, 0) : handleIndex;
-			this.#handles[this.#active].focus();
+			_fr0st_query.default.focus(this.#handles[this.#active]);
 			if (!this.node || _fr0st_query.default.is(this.node, ":disabled")) return;
 			const window = this.node.ownerDocument.defaultView;
 			this.#drag = {
@@ -409,26 +415,28 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 				x: event.clientX,
 				y: event.clientY,
 				moved: false,
-				tick: target.hasAttribute("data-ui-value") ? Number(target.dataset.uiValue) : null
+				tick: _fr0st_query.default.hasAttribute(target, "data-ui-value") ? Number(_fr0st_query.default.getDataset(target, "uiValue")) : null
 			};
 			this.#dragController = new window.AbortController();
 			const options = { signal: this.#dragController.signal };
-			window.addEventListener("pointermove", (e) => this.#move(e), options);
-			window.addEventListener("pointerup", (e) => this.#up(e), options);
-			window.addEventListener("pointercancel", (e) => {
-				if (e.pointerId === this.#drag?.id) this.#cancelDrag();
+			window.addEventListener("pointermove", (event) => this.#move(event), options);
+			window.addEventListener("pointerup", (event) => this.#up(event), options);
+			window.addEventListener("pointercancel", (event) => {
+				if (event.pointerId === this.#drag?.id) this.#cancelDrag();
 			}, options);
 			window.addEventListener("blur", () => this.#cancelDrag(), options);
 			this.#tooltipTriggers.add("drag");
 			this.#applyValue(this.#pointerValue(event), false);
 			if (this.node && this.#drag) _fr0st_query.default.triggerEvent(this.node, "slide.ui.slider");
 		}
-		/** Attaches native input, form, focus, keyboard, and pointer handlers. */
+		/**
+		* Attaches native input, form, focus, keyboard, and pointer handlers.
+		*/
 		#events() {
 			const window = this.node.ownerDocument.defaultView;
 			this.#eventController = new window.AbortController();
 			const options = { signal: this.#eventController.signal };
-			this.node.addEventListener("focus", () => this.#handles[0]?.focus(), options);
+			this.node.addEventListener("focus", () => _fr0st_query.default.focus(this.#handles[0]), options);
 			const synchronize = () => {
 				if (!this.#syncing && this.node) {
 					this.#cancelDrag();
@@ -555,19 +563,21 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 		*/
 		#normalize(value, snap = false) {
 			const { min, max, step, defaultValue, lockToTicks, tickSnapBounds } = this.options;
-			const raw = Math.max(min, Math.min(max, toNumber(value, defaultValue)));
+			const raw = Math.max(min, Math.min(max, parseNumber(value, defaultValue)));
 			if (this.#ticks.length && (lockToTicks || snap)) {
 				const closest = this.#ticks.reduce((best, tick) => Math.abs(tick.value - raw) < Math.abs(best.value - raw) ? tick : best);
 				if (lockToTicks || Math.abs(closest.value - raw) <= tickSnapBounds) return closest.value;
 			}
 			return clampValue(raw, min, max, step, defaultValue);
 		}
-		/** Copies, filters, and sorts ticks while preserving their original labels. */
+		/**
+		* Copies, filters, and sorts ticks while preserving their original labels.
+		*/
 		#normalizeTicks() {
 			const { min, max, ticks, tickLabels, rangeHighlights } = this.options;
 			const seen = /* @__PURE__ */ new Set();
 			for (const [index, input] of (Array.isArray(ticks) ? ticks : []).entries()) {
-				const value = toNumber(input, NaN);
+				const value = parseNumber(input, NaN);
 				if (!Number.isFinite(value) || value < min || value > max || seen.has(value)) continue;
 				seen.add(value);
 				this.#ticks.push({
@@ -578,8 +588,8 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 			}
 			this.#ticks.sort((a, b) => a.value - b.value);
 			for (const range of Array.isArray(rangeHighlights) ? rangeHighlights : []) {
-				const start = toNumber(range?.start, NaN);
-				const end = toNumber(range?.end, NaN);
+				const start = parseNumber(range?.start, NaN);
+				const end = parseNumber(range?.end, NaN);
 				if (Number.isFinite(start) && Number.isFinite(end)) this.#highlights.push({
 					start: Math.max(min, Math.min(max, Math.min(start, end))),
 					end: Math.max(min, Math.min(max, Math.max(start, end))),
@@ -631,27 +641,33 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 		* @param {boolean} [emit=true] Whether normalization should emit change.
 		*/
 		#readInput(emit = true) {
-			const values = this.options.range ? this.node.value.split(this.options.rangeSeparator, 2) : [this.node.value];
+			const values = this.options.range ? _fr0st_query.default.getValue(this.node).split(this.options.rangeSeparator, 2) : [_fr0st_query.default.getValue(this.node)];
 			this.#setValues(this.options.range ? [values[0], values[1]] : values, { emit });
 		}
-		/** Updates disabled presentation and tooltip visibility. */
+		/**
+		* Updates disabled presentation and tooltip visibility.
+		*/
 		#refreshDisabled() {
 			const disabled = _fr0st_query.default.is(this.node, ":disabled");
 			_fr0st_query.default.setStyle(this.#container, { opacity: disabled ? this.options.disabledOpacity : "" });
 			for (const handle of this.#handles) {
-				handle.disabled = disabled;
-				handle.setAttribute("aria-disabled", String(disabled));
+				_fr0st_query.default.setProperty(handle, { disabled });
+				_fr0st_query.default.setAttribute(handle, { "aria-disabled": String(disabled) });
 			}
 			this.#refreshTooltip();
 		}
-		/** Updates the public Tooltip using the combined hover, focus, and drag state. */
+		/**
+		* Updates the public Tooltip using the combined hover, focus, and drag state.
+		*/
 		#refreshTooltip() {
 			if (!this.node || !this.#tooltip || !this.#values.length) return;
 			if (_fr0st_query.default.is(this.node, ":disabled")) this.#tooltip.hide();
 			else if (this.options.tooltip === "always" || this.#tooltipTriggers.size) this.#tooltip.show();
 			else this.#tooltip.hide();
 		}
-		/** Renders the UI utility-based track, intervals, ticks, and handles. */
+		/**
+		* Renders the UI utility-based track, intervals, ticks, and handles.
+		*/
 		#render() {
 			const vertical = this.options.orientation === "vertical";
 			this.#container = _fr0st_query.default.create("div", {
@@ -662,7 +678,7 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 					touchAction: "none"
 				}
 			});
-			if (this.node.hasAttribute("dir")) this.#container.setAttribute("dir", this.node.getAttribute("dir"));
+			if (_fr0st_query.default.hasAttribute(this.node, "dir")) _fr0st_query.default.setAttribute(this.#container, { "dir": _fr0st_query.default.getAttribute(this.node, "dir") });
 			this.#slider = _fr0st_query.default.create("div", {
 				class: this.constructor.classes.slider,
 				style: {
@@ -698,12 +714,12 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 						transform: "translate(-50%, -50%)"
 					}
 				});
-				const labelledBy = this.node.getAttribute("aria-labelledby");
-				const explicit = this.node.getAttribute("aria-label");
-				const label = labelledBy ? labelledBy.split(/\s+/).map((id) => this.node.ownerDocument.getElementById(id)?.textContent.trim() || "").join(" ") : explicit || this.#label;
-				if (!this.options.range && labelledBy) handle.setAttribute("aria-labelledby", labelledBy);
-				else handle.setAttribute("aria-label", this.options.range ? `${label || "Range"} ${index ? "end" : "start"}` : label || "Value");
-				for (const attribute of ["aria-describedby", "aria-invalid"]) if (this.node.hasAttribute(attribute)) handle.setAttribute(attribute, this.node.getAttribute(attribute));
+				const labelledBy = _fr0st_query.default.getAttribute(this.node, "aria-labelledby");
+				const explicit = _fr0st_query.default.getAttribute(this.node, "aria-label");
+				const label = labelledBy ? labelledBy.split(/\s+/).map((id) => _fr0st_query.default.getText(_fr0st_query.default.findOneById(id, this.node.ownerDocument))?.trim() || "").join(" ") : explicit || this.#label;
+				if (!this.options.range && labelledBy) _fr0st_query.default.setAttribute(handle, { "aria-labelledby": labelledBy });
+				else _fr0st_query.default.setAttribute(handle, { "aria-label": this.options.range ? `${label || "Range"} ${index ? "end" : "start"}` : label || "Value" });
+				for (const attribute of ["aria-describedby", "aria-invalid"]) if (_fr0st_query.default.hasAttribute(this.node, attribute)) _fr0st_query.default.setAttribute(handle, { [attribute]: _fr0st_query.default.getAttribute(this.node, attribute) });
 				_fr0st_query.default.append(this.#container, handle);
 				this.#handles.push(handle);
 			}
@@ -714,7 +730,7 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 				spacing: this.options.range ? (this.options.handleSize - this.options.sliderSize) / 2 : 0
 			});
 			_fr0st_query.default.addClass(this.node, this.constructor.classes.hide);
-			this.node.setAttribute("tabindex", "-1");
+			_fr0st_query.default.setAttribute(this.node, { "tabindex": "-1" });
 		}
 		/**
 		* Creates a UI progress interval without inherited progress animation or glow.
@@ -734,7 +750,9 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 			_fr0st_query.default.append(this.#slider, bar);
 			return bar;
 		}
-		/** Renders normalized ticks and matching labels at physical track positions. */
+		/**
+		* Renders normalized ticks and matching labels at physical track positions.
+		*/
 		#renderTicks() {
 			const vertical = this.options.orientation === "vertical";
 			for (const tick of this.#ticks) {
@@ -825,7 +843,7 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 			this.#tooltipTriggers.delete("drag");
 			this.#applyValue(value, true);
 			if (this.node) {
-				this.#handles[this.#active].focus();
+				_fr0st_query.default.focus(this.#handles[this.#active]);
 				if (this.node) _fr0st_query.default.triggerEvent(this.node, "slid.ui.slider", { detail: this.#detail() });
 			}
 		}
