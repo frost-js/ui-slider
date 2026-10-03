@@ -2,9 +2,11 @@ import { expect, test } from '#test';
 
 test.describe('Slider styles', () => {
     test.beforeEach(async ({ page }) => {
-        await page.evaluate((_) => {
-            document.body.innerHTML = '<div id="host" style="width:360px;margin:40px">' +
-                '<label for="slider">Amount</label><input id="slider" value="2,8"></div>';
+        await page.evaluate(() => {
+            $.setHtml(document.body,
+                '<div id="host" style="width:360px;margin:40px">' +
+                '<label for="slider">Amount</label><input id="slider" value="2,8"></div>',
+            );
         });
     });
 
@@ -20,8 +22,8 @@ test.describe('Slider styles', () => {
 
                         test.beforeEach(async ({ page }) => {
                             await page.evaluate(({ orientation, reversed, direction }) => {
-                                document.querySelector('#host').dir = direction;
-                                UI.Slider.init(document.querySelector('#slider'), {
+                                $.setProperty($.findOne('#host'), 'dir', direction);
+                                UI.Slider.init($.findOne('#slider'), {
                                     orientation, reversed, range: true, ticks: [0, 2, 8, 10],
                                     tickLabels: ['Zero', 'Two', 'Eight', 'Ten'], tooltip: false,
                                     rangeHighlights: [{ start: 2, end: 4, style: 'bg-danger' }],
@@ -79,7 +81,7 @@ test.describe('Slider styles', () => {
     test.describe('sizing', () => {
         for (const orientation of ['horizontal', 'vertical']) {
             test(`applies track and handle dimensions (${orientation})`, async ({ page }) => {
-                await page.evaluate((orientation) => UI.Slider.init(document.querySelector('#slider'), {
+                await page.evaluate((orientation) => UI.Slider.init($.findOne('#slider'), {
                     orientation, sliderSize: 12, handleSize: 24, handleSizeRatio: .5,
                     verticalHeight: 300, tooltip: false,
                 }), orientation);
@@ -93,7 +95,7 @@ test.describe('Slider styles', () => {
         }
 
         test('applies tick dimensions', async ({ page }) => {
-            await page.evaluate((_) => UI.Slider.init(document.querySelector('#slider'), { ticks: [5], tickSize: 40 }));
+            await page.evaluate(() => UI.Slider.init($.findOne('#slider'), { ticks: [5], tickSize: 40 }));
 
             await expect(page.locator('[data-ui-value="5"]')).toHaveCSS('width', '40px');
             await expect(page.locator('[data-ui-value="5"]')).toHaveCSS('height', '40px');
@@ -107,7 +109,7 @@ test.describe('Slider styles', () => {
     ]) {
         test.describe(`${option} option`, () => {
             test('applies the interval background class', async ({ page }) => {
-                await page.evaluate(({ option, value }) => UI.Slider.init(document.querySelector('#slider'), {
+                await page.evaluate(({ option, value }) => UI.Slider.init($.findOne('#slider'), {
                     range: true, [option]: value,
                 }), { option, value });
 
@@ -118,7 +120,7 @@ test.describe('Slider styles', () => {
 
     test.describe('rangeHighlights option', () => {
         test('normalizes reversed intervals and clips them to the bounds', async ({ page }) => {
-            await page.evaluate((_) => UI.Slider.init(document.querySelector('#slider'), {
+            await page.evaluate(() => UI.Slider.init($.findOne('#slider'), {
                 range: true, ticks: [0, 5, 10], rangeHighlights: [
                     { start: 5, end: -2, style: 'bg-danger' },
                     { start: 8, end: 12, style: 'bg-warning' },
@@ -135,7 +137,7 @@ test.describe('Slider styles', () => {
         });
 
         test('takes precedence over selection styling on ticks', async ({ page }) => {
-            await page.evaluate((_) => UI.Slider.init(document.querySelector('#slider'), {
+            await page.evaluate(() => UI.Slider.init($.findOne('#slider'), {
                 range: true, ticks: [0, 5, 10], low: 'bg-info', high: 'bg-warning',
                 rangeHighlights: [{ start: 4, end: 6, style: 'bg-danger' }],
             }));
@@ -143,7 +145,7 @@ test.describe('Slider styles', () => {
             await expect(page.locator('[data-ui-value="0"]')).toHaveClass(/bg-info/);
             await expect(page.locator('[data-ui-value="5"]')).toHaveClass(/bg-danger/);
             await expect(page.locator('[data-ui-value="10"]')).toHaveClass(/bg-warning/);
-            await page.evaluate((_) => $('#slider').slider('setValue', 0, 10));
+            await page.evaluate(() => $('#slider').slider('setValue', 0, 10));
             await expect(page.locator('[data-ui-value="0"]')).toHaveClass(/bg-primary/);
             await expect(page.locator('[data-ui-value="5"]')).toHaveClass(/bg-danger/);
         });
@@ -151,20 +153,20 @@ test.describe('Slider styles', () => {
 
     test.describe('disabledOpacity option', () => {
         test('dims the container and restores opacity on enable', async ({ page }) => {
-            await page.evaluate((_) => {
-                const slider = UI.Slider.init(document.querySelector('#slider'), { disabledOpacity: .25 });
+            await page.evaluate(() => {
+                const slider = UI.Slider.init($.findOne('#slider'), { disabledOpacity: .25 });
                 slider.disable();
             });
 
             await expect(page.locator('#host > .position-relative')).toHaveCSS('opacity', '0.25');
-            await page.evaluate((_) => $('#slider').slider('enable'));
+            await page.evaluate(() => $('#slider').slider('enable'));
             await expect(page.locator('#host > .position-relative')).toHaveCSS('opacity', '1');
         });
     });
 
     test.describe('focus', () => {
         test('uses the UI focus ring on the active handle', async ({ page }) => {
-            await page.evaluate((_) => UI.Slider.init(document.querySelector('#slider')));
+            await page.evaluate(() => UI.Slider.init($.findOne('#slider')));
             await page.getByRole('slider').focus();
 
             await expect(page.getByRole('slider')).toBeFocused();
@@ -175,8 +177,8 @@ test.describe('Slider styles', () => {
         for (const orientation of ['horizontal', 'vertical']) {
             test(`positions an initially visible tooltip beside its handle (${orientation})`, async ({ page }) => {
                 await page.evaluate((orientation) => {
-                    const node = document.querySelector('#slider');
-                    node.value = '3';
+                    const node = $.findOne('#slider');
+                    $.setValue(node, '3');
                     UI.Slider.init(node, { orientation, tooltip: 'always' });
                 }, orientation);
 

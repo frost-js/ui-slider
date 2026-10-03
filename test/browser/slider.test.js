@@ -3,19 +3,21 @@ import { dispatchPointer } from '../support/input/pointer.js';
 
 test.describe('Slider', () => {
     test.beforeEach(async ({ page }) => {
-        await page.evaluate((_) => {
-            document.body.innerHTML = '<button id="outside">Outside</button>' +
+        await page.evaluate(() => {
+            $.setHtml(document.body,
+                '<button id="outside">Outside</button>' +
                 '<div id="host" style="width:360px;margin:40px">' +
-                '<label for="slider">Amount</label><input id="slider" value="3"><input id="slider2" value="7"></div>';
+                '<label for="slider">Amount</label><input id="slider" value="3"><input id="slider2" value="7"></div>',
+            );
         });
     });
 
     test.describe('#init', () => {
         for (const { name, init } of [
-            { name: 'class', init: () => UI.Slider.init(document.querySelector('#slider')) },
+            { name: 'class', init: () => UI.Slider.init($.findOne('#slider')) },
             { name: 'QuerySet', init: () => $('#slider').slider() },
         ]) {
-            test(`creates a Slider (${name})`, async ({ page }) => {
+            test(`creates and registers a Slider (${name})`, async ({ page }) => {
                 const instance = await page.evaluateHandle(init);
 
                 expect(await instance.evaluate((value) => value instanceof UI.Slider)).toBe(true);
@@ -26,19 +28,19 @@ test.describe('Slider', () => {
         }
 
         test('creates multiple Sliders (QuerySet)', async ({ page }) => {
-            await page.evaluate((_) => $('input').slider());
+            await page.evaluate(() => $('input').slider());
 
             await expect(page.getByRole('slider')).toHaveCount(2);
-            expect(await page.evaluate((_) => $.getData('#slider2', 'slider') instanceof UI.Slider)).toBe(true);
+            expect(await page.evaluate(() => $.getData('#slider2', 'slider') instanceof UI.Slider)).toBe(true);
         });
 
         test('returns the first Slider (QuerySet)', async ({ page }) => {
-            expect(await page.evaluate((_) => $('input').slider() === $.getData('#slider', 'slider'))).toBe(true);
+            expect(await page.evaluate(() => $('input').slider() === $.getData('#slider', 'slider'))).toBe(true);
         });
 
         test('reuses an existing Slider', async ({ page }) => {
-            expect(await page.evaluate((_) => {
-                const node = document.querySelector('#slider');
+            expect(await page.evaluate(() => {
+                const node = $.findOne('#slider');
                 const first = UI.Slider.init(node);
                 return UI.Slider.init(node, { range: true }) === first;
             })).toBe(true);
@@ -46,17 +48,17 @@ test.describe('Slider', () => {
         });
 
         test('exposes frozen options', async ({ page }) => {
-            const instance = await page.evaluateHandle((_) => UI.Slider.init(document.querySelector('#slider')));
+            const instance = await page.evaluateHandle(() => UI.Slider.init($.findOne('#slider')));
 
             expect(await instance.evaluate((value) => Object.isFrozen(value.options))).toBe(true);
-            expect(await instance.evaluate((value) => value.node === document.querySelector('#slider'))).toBe(true);
+            expect(await instance.evaluate((value) => value.node === $.findOne('#slider'))).toBe(true);
         });
 
         test('merges defaults, data attributes, and explicit options in order', async ({ page }) => {
-            await page.evaluate((_) => {
-                const node = document.querySelector('#slider');
-                node.dataset.uiMin = '2';
-                node.dataset.uiMax = '8';
+            await page.evaluate(() => {
+                const node = $.findOne('#slider');
+                $.setDataset(node, 'uiMin', 2);
+                $.setDataset(node, 'uiMax', 8);
                 UI.Slider.init(node, { max: 12 });
             });
 
@@ -65,20 +67,20 @@ test.describe('Slider', () => {
         });
 
         test('rejects non-input nodes without registering an instance', async ({ page }) => {
-            expect(await page.evaluate((_) => {
+            expect(await page.evaluate(() => {
                 try {
-                    UI.Slider.init(document.querySelector('#outside'));
+                    UI.Slider.init($.findOne('#outside'));
                 } catch (error) {
                     return error.message;
                 }
             })).toBe('Slider must be created on an input element.');
-            expect(await page.evaluate((_) => $.hasData('#outside', 'slider'))).toBe(false);
+            expect(await page.evaluate(() => $.hasData('#outside', 'slider'))).toBe(false);
         });
 
         test('restores the input if a formatter fails during initialization', async ({ page }) => {
-            expect(await page.evaluate((_) => {
+            expect(await page.evaluate(() => {
                 try {
-                    UI.Slider.init(document.querySelector('#slider'), {
+                    UI.Slider.init($.findOne('#slider'), {
                         valueText: () => {
                             throw new Error('Invalid formatter');
                         },
@@ -89,7 +91,7 @@ test.describe('Slider', () => {
             })).toBe('Invalid formatter');
             await expect(page.getByRole('slider')).toHaveCount(0);
             await expect(page.locator('#slider')).not.toHaveClass(/visually-hidden/);
-            expect(await page.evaluate((_) => $.hasData('#slider', 'slider'))).toBe(false);
+            expect(await page.evaluate(() => $.hasData('#slider', 'slider'))).toBe(false);
         });
     });
 
@@ -99,19 +101,19 @@ test.describe('Slider', () => {
             { name: 'QuerySet', dispose: () => $('#slider').slider('dispose') },
         ]) {
             test(`restores the original input (${name})`, async ({ page }) => {
-                const instance = await page.evaluateHandle((_) => {
-                    const node = document.querySelector('#slider');
-                    node.className = 'existing';
-                    node.tabIndex = 4;
+                const instance = await page.evaluateHandle(() => {
+                    const node = $.findOne('#slider');
+                    $.setAttribute(node, 'class', 'existing');
+                    $.setProperty(node, 'tabIndex', 4);
                     const instance = UI.Slider.init(node);
-                    node.classList.add('runtime');
+                    $.addClass(node, 'runtime');
                     return instance;
                 });
                 await page.evaluate(dispose, instance);
 
                 expect(await instance.evaluate((value) => value.node)).toBeNull();
                 expect(await instance.evaluate((value) => value.options)).toBeNull();
-                expect(await page.evaluate((_) => $.hasData('#slider', 'slider'))).toBe(false);
+                expect(await page.evaluate(() => $.hasData('#slider', 'slider'))).toBe(false);
                 await expect(page.getByRole('slider')).toHaveCount(0);
                 await expect(page.locator('#slider')).toHaveClass('existing runtime');
                 await expect(page.locator('#slider')).toHaveAttribute('tabindex', '4');
@@ -119,11 +121,11 @@ test.describe('Slider', () => {
         }
 
         test('restores an existing hidden class and absent tabindex', async ({ page }) => {
-            await page.evaluate((_) => {
-                const node = document.querySelector('#slider');
-                node.classList.add('visually-hidden');
+            await page.evaluate(() => {
+                const node = $.findOne('#slider');
+                $.addClass(node, 'visually-hidden');
                 const instance = UI.Slider.init(node);
-                node.classList.remove('visually-hidden');
+                $.removeClass(node, 'visually-hidden');
                 instance.dispose();
                 instance.dispose();
             });
@@ -133,8 +135,8 @@ test.describe('Slider', () => {
         });
 
         test('disposes when fQuery removes the original input', async ({ page }) => {
-            await page.evaluate((_) => {
-                UI.Slider.init(document.querySelector('#slider'), { tooltip: 'always' });
+            await page.evaluate(() => {
+                UI.Slider.init($.findOne('#slider'), { tooltip: 'always' });
                 $.remove('#slider');
             });
 
@@ -143,8 +145,8 @@ test.describe('Slider', () => {
         });
 
         test('allows reinitialization after disposal', async ({ page }) => {
-            await page.evaluate((_) => {
-                const node = document.querySelector('#slider');
+            await page.evaluate(() => {
+                const node = $.findOne('#slider');
                 UI.Slider.init(node).dispose();
                 UI.Slider.init(node).setValue(8);
             });
@@ -154,16 +156,16 @@ test.describe('Slider', () => {
         });
 
         test('preserves other instances and consumer change listeners', async ({ page }) => {
-            await page.evaluate((_) => {
+            await page.evaluate(() => {
                 $('input').slider();
                 window.changes = 0;
-                $.addEvent('#slider', 'change.ui.slider', (_) => window.changes++);
+                $.addEvent('#slider', 'change.ui.slider', () => window.changes++);
                 $('#slider').slider('dispose');
                 $.triggerEvent('#slider', 'change.ui.slider');
                 $('#slider2').slider('setValue', 9);
             });
 
-            expect(await page.evaluate((_) => window.changes)).toBe(1);
+            expect(await page.evaluate(() => window.changes)).toBe(1);
             await expect(page.getByRole('slider')).toHaveCount(1);
             await expect(page.getByRole('slider')).toHaveAttribute('aria-valuenow', '9');
         });
@@ -177,7 +179,7 @@ test.describe('Slider', () => {
             ]) {
                 test(`${method}s the input and handles (${name})`, async ({ page }) => {
                     await page.evaluate((method) => {
-                        const instance = UI.Slider.init(document.querySelector('#slider'), { range: true });
+                        const instance = UI.Slider.init($.findOne('#slider'), { range: true });
                         if (method === 'enable') {
                             instance.disable();
                         }
@@ -201,15 +203,15 @@ test.describe('Slider', () => {
             { name: 'QuerySet', getValue: () => $('#slider').slider('getValue') },
         ]) {
             test(`gets a single value (${name})`, async ({ page }) => {
-                await page.evaluate((_) => UI.Slider.init(document.querySelector('#slider')));
+                await page.evaluate(() => UI.Slider.init($.findOne('#slider')));
 
                 expect(await page.evaluate(getValue)).toBe(3);
             });
 
             test(`gets a range (${name})`, async ({ page }) => {
-                await page.evaluate((_) => {
-                    document.querySelector('#slider').value = '2,8';
-                    UI.Slider.init(document.querySelector('#slider'), { range: true });
+                await page.evaluate(() => {
+                    $.setValue($.findOne('#slider'), '2,8');
+                    UI.Slider.init($.findOne('#slider'), { range: true });
                 });
 
                 expect(await page.evaluate(getValue)).toEqual([2, 8]);
@@ -217,8 +219,8 @@ test.describe('Slider', () => {
         }
 
         test('returns a copy of range values', async ({ page }) => {
-            expect(await page.evaluate((_) => {
-                const instance = UI.Slider.init(document.querySelector('#slider'), { range: true });
+            expect(await page.evaluate(() => {
+                const instance = UI.Slider.init($.findOne('#slider'), { range: true });
                 instance.setValue(2, 8);
                 instance.getValue()[0] = 100;
                 return instance.getValue();
@@ -232,7 +234,7 @@ test.describe('Slider', () => {
             { name: 'QuerySet', setValue: () => $('#slider').slider('setValue', 7) },
         ]) {
             test(`sets a single value (${name})`, async ({ page }) => {
-                await page.evaluate((_) => UI.Slider.init(document.querySelector('#slider')));
+                await page.evaluate(() => UI.Slider.init($.findOne('#slider')));
                 await page.evaluate(setValue);
 
                 await expect(page.locator('#slider')).toHaveValue('7');
@@ -245,7 +247,7 @@ test.describe('Slider', () => {
             { name: 'QuerySet', setValue: () => $('#slider').slider('setValue', 9, 1) },
         ]) {
             test(`orders range endpoints (${name})`, async ({ page }) => {
-                await page.evaluate((_) => UI.Slider.init(document.querySelector('#slider'), { range: true }));
+                await page.evaluate(() => UI.Slider.init($.findOne('#slider'), { range: true }));
                 await page.evaluate(setValue);
 
                 await expect(page.locator('#slider')).toHaveValue('1,9');
@@ -257,9 +259,9 @@ test.describe('Slider', () => {
 
     test.describe('input attributes', () => {
         test('inherits initial disabled state', async ({ page }) => {
-            await page.evaluate((_) => {
-                const node = document.querySelector('#slider');
-                node.disabled = true;
+            await page.evaluate(() => {
+                const node = $.findOne('#slider');
+                $.setProperty(node, 'disabled', true);
                 UI.Slider.init(node);
             });
 
@@ -276,8 +278,8 @@ test.describe('Slider', () => {
         ]) {
             test(`sets the accessible name from ${name}`, async ({ page }) => {
                 await page.evaluate((markup) => {
-                    document.querySelector('#host').innerHTML = markup;
-                    UI.Slider.init(document.querySelector('#slider'));
+                    $.setHtml($.findOne('#host'), markup);
+                    UI.Slider.init($.findOne('#slider'));
                 }, markup);
 
                 await expect(page.getByRole('slider')).toHaveAccessibleName(expected);
@@ -285,10 +287,10 @@ test.describe('Slider', () => {
         }
 
         test('supports unusual input IDs without changing label IDs', async ({ page }) => {
-            await page.evaluate((_) => {
-                const node = document.querySelector('#slider');
-                node.id = 'amount"value';
-                document.querySelector('label').htmlFor = node.id;
+            await page.evaluate(() => {
+                const node = $.findOne('#slider');
+                $.setProperty(node, 'id', 'amount"value');
+                $.setProperty($.findOne('label'), 'htmlFor', $.getProperty(node, 'id'));
                 UI.Slider.init(node);
             });
 
@@ -297,10 +299,10 @@ test.describe('Slider', () => {
         });
 
         test('copies descriptions and invalid state to the handle', async ({ page }) => {
-            await page.evaluate((_) => {
-                const node = document.querySelector('#slider');
-                node.setAttribute('aria-describedby', 'help');
-                node.setAttribute('aria-invalid', 'true');
+            await page.evaluate(() => {
+                const node = $.findOne('#slider');
+                $.setAttribute(node, 'aria-describedby', 'help');
+                $.setAttribute(node, 'aria-invalid', 'true');
                 UI.Slider.init(node, { tooltip: false });
             });
 
@@ -311,24 +313,24 @@ test.describe('Slider', () => {
 
     test.describe('events', () => {
         test('emits change once per distinct normalized value', async ({ page }) => {
-            await page.evaluate((_) => {
-                const instance = UI.Slider.init(document.querySelector('#slider'));
+            await page.evaluate(() => {
+                const instance = UI.Slider.init($.findOne('#slider'));
                 window.changes = 0;
-                $.addEvent('#slider', 'change.ui.slider', (_) => window.changes++);
+                $.addEvent('#slider', 'change.ui.slider', () => window.changes++);
                 instance.setValue(5);
                 instance.setValue(5.1);
                 instance.setValue(6);
             });
 
-            expect(await page.evaluate((_) => window.changes)).toBe(2);
+            expect(await page.evaluate(() => window.changes)).toBe(2);
             await expect(page.locator('#slider')).toHaveValue('6');
         });
 
         for (const range of [false, true]) {
             test(`emits drag events in order (range=${range})`, async ({ page }) => {
                 await page.evaluate((range) => {
-                    const node = document.querySelector('#slider');
-                    node.value = range ? '2,4' : '2';
+                    const node = $.findOne('#slider');
+                    $.setValue(node, range ? '2,4' : '2');
                     UI.Slider.init(node, { range, tooltip: false });
                     window.events = [];
                     for (const name of ['slide', 'sliding', 'change', 'slid']) {
@@ -345,12 +347,12 @@ test.describe('Slider', () => {
                 await page.mouse.move(box.x + box.width * .8, y);
                 await page.mouse.up();
 
-                expect(await page.evaluate((_) => window.events.join(','))).toBe('slide,sliding,change,slid');
+                expect(await page.evaluate(() => window.events.join(','))).toBe('slide,sliding,change,slid');
                 if (range) {
-                    expect(await page.evaluate((_) => window.lastDetail.start)).toBe(2);
-                    expect(await page.evaluate((_) => window.lastDetail.end)).toBe(8);
+                    expect(await page.evaluate(() => window.lastDetail.start)).toBe(2);
+                    expect(await page.evaluate(() => window.lastDetail.end)).toBe(8);
                 } else {
-                    expect(await page.evaluate((_) => window.lastDetail)).toBe(8);
+                    expect(await page.evaluate(() => window.lastDetail)).toBe(8);
                 }
             });
         }
@@ -358,7 +360,7 @@ test.describe('Slider', () => {
         for (const event of ['slide', 'sliding']) {
             test(`cancels a gesture when disabled in a ${event} listener`, async ({ page }) => {
                 await page.evaluate((event) => {
-                    const instance = UI.Slider.init(document.querySelector('#slider'));
+                    const instance = UI.Slider.init($.findOne('#slider'));
                     window.changes = 0;
                     window.releases = 0;
                     $.addEvent('#slider', `${event}.ui.slider`, () => instance.disable());
@@ -372,8 +374,8 @@ test.describe('Slider', () => {
                 await expect(page.getByRole('slider')).toBeDisabled();
                 await expect(page.getByRole('slider')).toHaveAttribute('aria-valuenow', '3');
                 await expect(page.locator('#slider')).toHaveValue('3');
-                expect(await page.evaluate((_) => window.changes)).toBe(0);
-                expect(await page.evaluate((_) => window.releases)).toBe(0);
+                expect(await page.evaluate(() => window.changes)).toBe(0);
+                expect(await page.evaluate(() => window.releases)).toBe(0);
             });
         }
 
@@ -382,8 +384,8 @@ test.describe('Slider', () => {
                 const errors = [];
                 page.on('pageerror', (error) => errors.push(error.message));
                 await page.evaluate((event) => {
-                    const instance = UI.Slider.init(document.querySelector('#slider'));
-                    $.addEvent('#slider', `${event}.ui.slider`, (_) => instance.dispose());
+                    const instance = UI.Slider.init($.findOne('#slider'));
+                    $.addEvent('#slider', `${event}.ui.slider`, () => instance.dispose());
                 }, event);
                 const box = await page.locator('#host .progress.position-relative').boundingBox();
                 await page.mouse.move(box.x + box.width * .5, box.y + box.height / 2);
@@ -400,7 +402,7 @@ test.describe('Slider', () => {
 
     test.describe('user events', () => {
         test.beforeEach(async ({ page }) => {
-            await page.evaluate((_) => UI.Slider.init(document.querySelector('#slider'), { tooltip: false }));
+            await page.evaluate(() => UI.Slider.init($.findOne('#slider'), { tooltip: false }));
         });
 
         test.describe('click', () => {
@@ -438,9 +440,9 @@ test.describe('Slider', () => {
             }
 
             test('ignores keyboard input while disabled', async ({ page }) => {
-                await page.evaluate((_) => {
+                await page.evaluate(() => {
                     $('#slider').slider('disable');
-                    document.querySelector('[role="slider"]').dispatchEvent(new KeyboardEvent('keydown', { key: 'End', bubbles: true }));
+                    $.findOne('[role="slider"]').dispatchEvent(new KeyboardEvent('keydown', { key: 'End', bubbles: true }));
                 });
 
                 await expect(page.locator('#slider')).toHaveValue('3');
@@ -473,7 +475,7 @@ test.describe('Slider', () => {
 
                 await expect(page.getByRole('slider')).toHaveAttribute('aria-valuenow', '8');
                 await expect(page.locator('#slider')).toHaveValue('3');
-                expect(await page.evaluate((_) => $('#slider').slider('getValue'))).toBe(8);
+                expect(await page.evaluate(() => $('#slider').slider('getValue'))).toBe(8);
                 await page.mouse.up();
                 await expect(page.locator('#slider')).toHaveValue('8');
             });
@@ -527,7 +529,7 @@ test.describe('Slider', () => {
 
             test('preserves a programmatic commit when a gesture is canceled', async ({ page }) => {
                 await page.evaluate(dispatchPointer, { type: 'pointerdown', fraction: .8 });
-                await page.evaluate((_) => $('#slider').slider('setValue', 6));
+                await page.evaluate(() => $('#slider').slider('setValue', 6));
                 await page.evaluate(dispatchPointer, { type: 'pointercancel' });
 
                 await expect(page.locator('#slider')).toHaveValue('6');
@@ -538,28 +540,28 @@ test.describe('Slider', () => {
 
     test.describe('min option', () => {
         test('clamps values below the minimum', async ({ page }) => {
-            await page.evaluate((_) => UI.Slider.init(document.querySelector('#slider'), { min: 4 }).setValue(-1));
+            await page.evaluate(() => UI.Slider.init($.findOne('#slider'), { min: 4 }).setValue(-1));
 
             await expect(page.locator('#slider')).toHaveValue('4');
             await expect(page.getByRole('slider')).toHaveAttribute('aria-valuemin', '4');
         });
 
         test('rejects bounds in descending order', async ({ page }) => {
-            expect(await page.evaluate((_) => {
+            expect(await page.evaluate(() => {
                 try {
-                    UI.Slider.init(document.querySelector('#slider'), { min: 20 });
+                    UI.Slider.init($.findOne('#slider'), { min: 20 });
                 } catch (error) {
                     return error instanceof RangeError;
                 }
             })).toBe(true);
-            expect(await page.evaluate((_) => $.hasData('#slider', 'slider'))).toBe(false);
+            expect(await page.evaluate(() => $.hasData('#slider', 'slider'))).toBe(false);
             await expect(page.getByRole('slider')).toHaveCount(0);
         });
     });
 
     test.describe('max option', () => {
         test('keeps the maximum reachable when the step does not divide the interval', async ({ page }) => {
-            await page.evaluate((_) => UI.Slider.init(document.querySelector('#slider'), { max: 10, step: 6 }).setValue(20));
+            await page.evaluate(() => UI.Slider.init($.findOne('#slider'), { max: 10, step: 6 }).setValue(20));
 
             await expect(page.locator('#slider')).toHaveValue('10');
             await expect(page.getByRole('slider')).toHaveAttribute('aria-valuemax', '10');
@@ -567,7 +569,7 @@ test.describe('Slider', () => {
 
         for (const scale of ['linear', 'logarithmic']) {
             test(`renders equal bounds without invalid geometry (${scale})`, async ({ page }) => {
-                await page.evaluate((scale) => UI.Slider.init(document.querySelector('#slider'), { min: 5, max: 5, scale }), scale);
+                await page.evaluate((scale) => UI.Slider.init($.findOne('#slider'), { min: 5, max: 5, scale }), scale);
 
                 await expect(page.locator('#slider')).toHaveValue('5');
                 await expect(page.getByRole('slider')).toHaveCSS('left', '0px');
@@ -581,9 +583,9 @@ test.describe('Slider', () => {
         }
 
         test('rejects non-finite bounds', async ({ page }) => {
-            expect(await page.evaluate((_) => {
+            expect(await page.evaluate(() => {
                 try {
-                    UI.Slider.init(document.querySelector('#slider'), { max: Infinity });
+                    UI.Slider.init($.findOne('#slider'), { max: Infinity });
                 } catch (error) {
                     return error instanceof RangeError;
                 }
@@ -602,7 +604,7 @@ test.describe('Slider', () => {
         ]) {
             test(`uses the fallback for ${name}`, async ({ page }) => {
                 await page.evaluate((value) => {
-                    UI.Slider.init(document.querySelector('#slider'), { defaultValue: 4 }).setValue(value);
+                    UI.Slider.init($.findOne('#slider'), { defaultValue: 4 }).setValue(value);
                 }, value);
 
                 await expect(page.locator('#slider')).toHaveValue('4');
@@ -611,9 +613,9 @@ test.describe('Slider', () => {
         }
 
         test('falls back to the minimum when defaultValue is invalid', async ({ page }) => {
-            await page.evaluate((_) => {
-                document.querySelector('#slider').value = '';
-                UI.Slider.init(document.querySelector('#slider'), { min: 2, defaultValue: 'invalid' });
+            await page.evaluate(() => {
+                $.setValue($.findOne('#slider'), '');
+                UI.Slider.init($.findOne('#slider'), { min: 2, defaultValue: 'invalid' });
             });
 
             await expect(page.locator('#slider')).toHaveValue('2');
@@ -622,7 +624,7 @@ test.describe('Slider', () => {
 
     test.describe('step option', () => {
         test('rounds decimal steps relative to the minimum', async ({ page }) => {
-            await page.evaluate((_) => UI.Slider.init(document.querySelector('#slider'), { min: .1, step: .2 }).setValue(.24));
+            await page.evaluate(() => UI.Slider.init($.findOne('#slider'), { min: .1, step: .2 }).setValue(.24));
 
             await expect(page.locator('#slider')).toHaveValue('0.3');
             await page.getByRole('slider').press('ArrowRight');
@@ -630,7 +632,7 @@ test.describe('Slider', () => {
         });
 
         test('clamps the result after rounding', async ({ page }) => {
-            await page.evaluate((_) => UI.Slider.init(document.querySelector('#slider'), { step: 6 }).setValue(9.5));
+            await page.evaluate(() => UI.Slider.init($.findOne('#slider'), { step: 6 }).setValue(9.5));
 
             await expect(page.locator('#slider')).toHaveValue('10');
         });
@@ -639,7 +641,7 @@ test.describe('Slider', () => {
             test(`rejects step=${step}`, async ({ page }) => {
                 expect(await page.evaluate((step) => {
                     try {
-                        UI.Slider.init(document.querySelector('#slider'), { step });
+                        UI.Slider.init($.findOne('#slider'), { step });
                     } catch (error) {
                         return error instanceof RangeError;
                     }
@@ -651,9 +653,9 @@ test.describe('Slider', () => {
 
     test.describe('range option', () => {
         test('renders two separately named handles', async ({ page }) => {
-            await page.evaluate((_) => {
-                document.querySelector('#slider').value = '2,8';
-                UI.Slider.init(document.querySelector('#slider'), { range: true });
+            await page.evaluate(() => {
+                $.setValue($.findOne('#slider'), '2,8');
+                UI.Slider.init($.findOne('#slider'), { range: true });
             });
 
             await expect(page.getByRole('slider')).toHaveCount(2);
@@ -662,7 +664,7 @@ test.describe('Slider', () => {
         });
 
         test('uses defaultValue for a missing endpoint', async ({ page }) => {
-            await page.evaluate((_) => UI.Slider.init(document.querySelector('#slider'), { range: true, defaultValue: 1 }).setValue(8));
+            await page.evaluate(() => UI.Slider.init($.findOne('#slider'), { range: true, defaultValue: 1 }).setValue(8));
 
             await expect(page.locator('#slider')).toHaveValue('1,8');
         });
@@ -672,7 +674,7 @@ test.describe('Slider', () => {
             { name: 'end', key: 'Home', expected: '0,8', focused: 'Amount start' },
         ]) {
             test(`hands focus to the other handle when ${name} crosses`, async ({ page }) => {
-                await page.evaluate((_) => UI.Slider.init(document.querySelector('#slider'), { range: true }).setValue(2, 8));
+                await page.evaluate(() => UI.Slider.init($.findOne('#slider'), { range: true }).setValue(2, 8));
                 await page.getByRole('slider', { name: `Amount ${name}` }).press(key);
 
                 await expect(page.locator('#slider')).toHaveValue(expected);
@@ -681,7 +683,7 @@ test.describe('Slider', () => {
         }
 
         test('selects the closest handle when clicking the track', async ({ page }) => {
-            await page.evaluate((_) => UI.Slider.init(document.querySelector('#slider'), { range: true, tooltip: false }).setValue(2, 8));
+            await page.evaluate(() => UI.Slider.init($.findOne('#slider'), { range: true, tooltip: false }).setValue(2, 8));
             const box = await page.locator('#host .progress.position-relative').boundingBox();
             await page.mouse.click(box.x + box.width * .7, box.y + box.height / 2);
 
@@ -692,9 +694,9 @@ test.describe('Slider', () => {
 
     test.describe('rangeSeparator option', () => {
         test('reads and serializes the configured separator', async ({ page }) => {
-            await page.evaluate((_) => {
-                document.querySelector('#slider').value = '2:8';
-                UI.Slider.init(document.querySelector('#slider'), { range: true, rangeSeparator: ':' });
+            await page.evaluate(() => {
+                $.setValue($.findOne('#slider'), '2:8');
+                UI.Slider.init($.findOne('#slider'), { range: true, rangeSeparator: ':' });
             });
             await page.getByRole('slider', { name: 'Amount end' }).press('ArrowLeft');
 
@@ -702,9 +704,9 @@ test.describe('Slider', () => {
         });
 
         test('rejects an empty separator', async ({ page }) => {
-            expect(await page.evaluate((_) => {
+            expect(await page.evaluate(() => {
                 try {
-                    UI.Slider.init(document.querySelector('#slider'), { rangeSeparator: '' });
+                    UI.Slider.init($.findOne('#slider'), { rangeSeparator: '' });
                 } catch (error) {
                     return error instanceof RangeError;
                 }
@@ -715,14 +717,14 @@ test.describe('Slider', () => {
     test.describe('orientation option', () => {
         for (const orientation of ['horizontal', 'vertical']) {
             test(`exposes ${orientation} orientation`, async ({ page }) => {
-                await page.evaluate((orientation) => UI.Slider.init(document.querySelector('#slider'), { orientation }), orientation);
+                await page.evaluate((orientation) => UI.Slider.init($.findOne('#slider'), { orientation }), orientation);
 
                 await expect(page.getByRole('slider')).toHaveAttribute('aria-orientation', orientation);
             });
         }
 
         test('maps vertical pointer movement to values', async ({ page }) => {
-            await page.evaluate((_) => UI.Slider.init(document.querySelector('#slider'), { orientation: 'vertical', tooltip: false }));
+            await page.evaluate(() => UI.Slider.init($.findOne('#slider'), { orientation: 'vertical', tooltip: false }));
             const box = await page.locator('#host .progress.position-relative').boundingBox();
             await page.mouse.click(box.x + box.width / 2, box.y + box.height * .8);
 
@@ -732,7 +734,7 @@ test.describe('Slider', () => {
 
     test.describe('reversed option', () => {
         test('reverses horizontal clicks and arrow keys', async ({ page }) => {
-            await page.evaluate((_) => UI.Slider.init(document.querySelector('#slider'), { reversed: true, tooltip: false }));
+            await page.evaluate(() => UI.Slider.init($.findOne('#slider'), { reversed: true, tooltip: false }));
             const box = await page.locator('#host .progress.position-relative').boundingBox();
             await page.mouse.click(box.x + box.width * .8, box.y + box.height / 2);
 
@@ -745,7 +747,7 @@ test.describe('Slider', () => {
     test.describe('scale option', () => {
         for (const min of [-10, 0, 10]) {
             test(`maps logarithmic midpoints with min=${min}`, async ({ page }) => {
-                await page.evaluate((min) => UI.Slider.init(document.querySelector('#slider'), { min, max: min + 99, scale: 'logarithmic', tooltip: false }), min);
+                await page.evaluate((min) => UI.Slider.init($.findOne('#slider'), { min, max: min + 99, scale: 'logarithmic', tooltip: false }), min);
                 const box = await page.locator('#host .progress.position-relative').boundingBox();
                 await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
 
@@ -755,7 +757,7 @@ test.describe('Slider', () => {
         }
 
         test('keeps logarithmic endpoints reachable', async ({ page }) => {
-            await page.evaluate((_) => UI.Slider.init(document.querySelector('#slider'), { min: 10, max: 100, scale: 'logarithmic', tooltip: false }));
+            await page.evaluate(() => UI.Slider.init($.findOne('#slider'), { min: 10, max: 100, scale: 'logarithmic', tooltip: false }));
             const box = await page.locator('#host .progress.position-relative').boundingBox();
             await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
             await page.mouse.down();
@@ -769,16 +771,16 @@ test.describe('Slider', () => {
 
     test.describe('ticks option', () => {
         test('sorts and deduplicates usable ticks without changing the caller array', async ({ page }) => {
-            const ticks = await page.evaluateHandle((_) => {
+            const ticks = await page.evaluate(() => {
                 const ticks = Object.freeze([10, 0, 5, 5, -1, 11, 'invalid']);
-                UI.Slider.init(document.querySelector('#slider'), { ticks });
+                UI.Slider.init($.findOne('#slider'), { ticks });
                 return ticks;
             });
 
             await expect(page.locator('[data-ui-value]')).toHaveCount(3);
             await expect(page.locator('[data-ui-value]').nth(0)).toHaveAttribute('data-ui-value', '0');
             await expect(page.locator('[data-ui-value]').nth(1)).toHaveAttribute('data-ui-value', '5');
-            expect(await ticks.evaluate((value) => value.join(','))).toBe('10,0,5,5,-1,11,invalid');
+            expect(ticks).toEqual([10, 0, 5, 5, -1, 11, 'invalid']);
         });
 
         for (const { key, expected } of [
@@ -786,7 +788,7 @@ test.describe('Slider', () => {
             { key: 'Control+ArrowLeft', expected: '0' },
         ]) {
             test(`navigates ticks with ${key}`, async ({ page }) => {
-                await page.evaluate((_) => UI.Slider.init(document.querySelector('#slider'), { ticks: [0, 5, 10] }));
+                await page.evaluate(() => UI.Slider.init($.findOne('#slider'), { ticks: [0, 5, 10] }));
                 await page.getByRole('slider').press(key);
 
                 await expect(page.locator('#slider')).toHaveValue(expected);
@@ -794,7 +796,7 @@ test.describe('Slider', () => {
         }
 
         test('sets a range endpoint when a tick is clicked', async ({ page }) => {
-            await page.evaluate((_) => UI.Slider.init(document.querySelector('#slider'), { range: true, ticks: [0, 2.5, 10] }).setValue(0, 8));
+            await page.evaluate(() => UI.Slider.init($.findOne('#slider'), { range: true, ticks: [0, 2.5, 10] }).setValue(0, 8));
             await page.locator('[data-ui-value="2.5"]').click();
 
             await expect(page.locator('#slider')).toHaveValue('2.5,8');
@@ -803,7 +805,7 @@ test.describe('Slider', () => {
 
     test.describe('tickLabels option', () => {
         test('keeps labels associated with ticks after sorting', async ({ page }) => {
-            await page.evaluate((_) => UI.Slider.init(document.querySelector('#slider'), {
+            await page.evaluate(() => UI.Slider.init($.findOne('#slider'), {
                 ticks: [10, 0, 5, 7], tickLabels: ['Ten', 0, 'Five', ''],
             }));
 
@@ -813,7 +815,7 @@ test.describe('Slider', () => {
 
     test.describe('tickSnapBounds option', () => {
         test('snaps to the zero tick within the configured distance', async ({ page }) => {
-            await page.evaluate((_) => UI.Slider.init(document.querySelector('#slider'), { ticks: [0, 5], tickSize: 10, step: .1, tickSnapBounds: .5, tooltip: false }));
+            await page.evaluate(() => UI.Slider.init($.findOne('#slider'), { ticks: [0, 5], tickSize: 10, step: .1, tickSnapBounds: .5, tooltip: false }));
             const box = await page.locator('#host .progress.position-relative').boundingBox();
             await page.mouse.click(box.x + box.width * .04, box.y + box.height / 2);
 
@@ -821,7 +823,7 @@ test.describe('Slider', () => {
         });
 
         test('restores an off-step committed tick after cancellation', async ({ page }) => {
-            await page.evaluate((_) => UI.Slider.init(document.querySelector('#slider'), {
+            await page.evaluate(() => UI.Slider.init($.findOne('#slider'), {
                 ticks: [2.5], tickSnapBounds: .5, step: 1, tooltip: false,
             }));
             await page.locator('[data-ui-value="2.5"]').click();
@@ -835,7 +837,7 @@ test.describe('Slider', () => {
         });
 
         test('does not snap outside the configured distance', async ({ page }) => {
-            await page.evaluate((_) => UI.Slider.init(document.querySelector('#slider'), { ticks: [0, 5], tickSnapBounds: .5, tooltip: false }));
+            await page.evaluate(() => UI.Slider.init($.findOne('#slider'), { ticks: [0, 5], tickSnapBounds: .5, tooltip: false }));
             const box = await page.locator('#host .progress.position-relative').boundingBox();
             await page.mouse.click(box.x + box.width * .3, box.y + box.height / 2);
 
@@ -845,7 +847,7 @@ test.describe('Slider', () => {
 
     test.describe('lockToTicks option', () => {
         test('snaps setters to the nearest tick including zero', async ({ page }) => {
-            await page.evaluate((_) => UI.Slider.init(document.querySelector('#slider'), { ticks: [0, 5, 10], lockToTicks: true }).setValue(.2));
+            await page.evaluate(() => UI.Slider.init($.findOne('#slider'), { ticks: [0, 5, 10], lockToTicks: true }).setValue(.2));
 
             await expect(page.locator('#slider')).toHaveValue('0');
             await page.getByRole('slider').press('ArrowRight');
@@ -855,7 +857,7 @@ test.describe('Slider', () => {
         });
 
         test('uses ordinary steps when there are no usable ticks', async ({ page }) => {
-            await page.evaluate((_) => UI.Slider.init(document.querySelector('#slider'), { ticks: [-1, 20], lockToTicks: true }));
+            await page.evaluate(() => UI.Slider.init($.findOne('#slider'), { ticks: [-1, 20], lockToTicks: true }));
             await page.getByRole('slider').press('ArrowRight');
 
             await expect(page.locator('#slider')).toHaveValue('4');
@@ -865,14 +867,14 @@ test.describe('Slider', () => {
 
     test.describe('tooltip option', () => {
         test('does not create a tooltip when disabled', async ({ page }) => {
-            await page.evaluate((_) => UI.Slider.init(document.querySelector('#slider'), { tooltip: false }));
+            await page.evaluate(() => UI.Slider.init($.findOne('#slider'), { tooltip: false }));
             await page.getByRole('slider').focus();
 
             await expect(page.getByRole('tooltip')).toHaveCount(0);
         });
 
         test('shows on focus and hides when focus leaves', async ({ page }) => {
-            await page.evaluate((_) => UI.Slider.init(document.querySelector('#slider')));
+            await page.evaluate(() => UI.Slider.init($.findOne('#slider')));
             await page.getByRole('slider').focus();
             await expect(page.getByRole('tooltip')).toHaveText('3');
             await page.locator('#outside').focus();
@@ -880,7 +882,7 @@ test.describe('Slider', () => {
         });
 
         test('keeps the tooltip visible while focus remains after hover ends', async ({ page }) => {
-            await page.evaluate((_) => UI.Slider.init(document.querySelector('#slider')));
+            await page.evaluate(() => UI.Slider.init($.findOne('#slider')));
             await page.getByRole('slider').hover();
             await page.getByRole('slider').focus();
             await page.mouse.move(0, 0);
@@ -889,19 +891,19 @@ test.describe('Slider', () => {
         });
 
         test('shows always-visible content after initialization', async ({ page }) => {
-            await page.evaluate((_) => UI.Slider.init(document.querySelector('#slider'), { tooltip: 'always' }));
+            await page.evaluate(() => UI.Slider.init($.findOne('#slider'), { tooltip: 'always' }));
 
             await expect(page.getByRole('tooltip')).toBeVisible();
             await expect(page.getByRole('tooltip')).toHaveText('3');
-            await page.evaluate((_) => $('#slider').slider('disable'));
+            await page.evaluate(() => $('#slider').slider('disable'));
             await expect(page.getByRole('tooltip')).toHaveCount(0);
         });
 
         test('settles rapid focus changes without stale visibility', async ({ page }) => {
-            await page.evaluate((_) => UI.Slider.init(document.querySelector('#slider'), { range: true }).setValue(2, 8));
+            await page.evaluate(() => UI.Slider.init($.findOne('#slider'), { range: true }).setValue(2, 8));
             await page.getByRole('slider', { name: 'Amount start' }).focus();
-            await page.evaluate((_) => {
-                const handles = document.querySelectorAll('[role="slider"]');
+            await page.evaluate(() => {
+                const handles = $.find('[role="slider"]');
                 handles[0].blur();
                 handles[1].focus();
             });
@@ -914,7 +916,7 @@ test.describe('Slider', () => {
 
     test.describe('tooltipPlacement option', () => {
         test('uses the requested placement', async ({ page }) => {
-            await page.evaluate((_) => UI.Slider.init(document.querySelector('#slider'), { tooltip: 'always', tooltipPlacement: 'bottom' }));
+            await page.evaluate(() => UI.Slider.init($.findOne('#slider'), { tooltip: 'always', tooltipPlacement: 'bottom' }));
 
             await expect(page.getByRole('tooltip')).toHaveAttribute('data-ui-placement', /bottom/);
         });
@@ -922,7 +924,7 @@ test.describe('Slider', () => {
 
     test.describe('valueText option', () => {
         test('formats accessible text and tooltip content', async ({ page }) => {
-            await page.evaluate((_) => UI.Slider.init(document.querySelector('#slider'), {
+            await page.evaluate(() => UI.Slider.init($.findOne('#slider'), {
                 tooltip: 'always', valueText: (value) => `Value ${value}`,
             }).setValue(7));
 
@@ -931,9 +933,9 @@ test.describe('Slider', () => {
         });
 
         test('rejects non-function formatters', async ({ page }) => {
-            expect(await page.evaluate((_) => {
+            expect(await page.evaluate(() => {
                 try {
-                    UI.Slider.init(document.querySelector('#slider'), { valueText: 'invalid' });
+                    UI.Slider.init($.findOne('#slider'), { valueText: 'invalid' });
                 } catch (error) {
                     return error instanceof TypeError;
                 }
@@ -943,7 +945,7 @@ test.describe('Slider', () => {
 
     test.describe('rangeText option', () => {
         test('formats the range tooltip', async ({ page }) => {
-            await page.evaluate((_) => UI.Slider.init(document.querySelector('#slider'), {
+            await page.evaluate(() => UI.Slider.init($.findOne('#slider'), {
                 range: true, tooltip: 'always', rangeText: (start, end) => `${start} to ${end}`,
             }).setValue(2, 8));
 
