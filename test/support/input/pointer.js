@@ -24,4 +24,4 @@ export function dispatchPointer({ type, fraction = .5, id = 1, primary = true, b
     const target = type === 'pointerdown' ? track : window;
     target.dispatchEvent(event);
     return event.defaultPrevented;
-};
+}
