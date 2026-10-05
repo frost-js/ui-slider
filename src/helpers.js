@@ -1,46 +1,12 @@
 /**
- * Parses a finite numeric value, using a fallback for missing or invalid input.
- * @param {*} value The value to parse.
- * @param {number} fallback The fallback value.
- * @returns {number} The parsed value or fallback.
- */
-export function parseNumber(value, fallback) {
-    if (
-        !['number', 'string'].includes(typeof value) ||
-        `${value}`.trim() === ''
-    ) {
-        return fallback;
-    }
-
-    const number = Number(value);
-
-    return Number.isFinite(number) ? number : fallback;
-}
-
-/**
- * Parses a positive finite number, using a fallback for invalid input.
- * @param {*} value The value to parse.
- * @param {number} fallback The positive fallback value.
- * @returns {number} The positive number or fallback.
- */
-export function parsePositiveNumber(value, fallback) {
-    const number = parseNumber(value, fallback);
-
-    return number > 0 ? number : fallback;
-}
-
-/**
- * Normalizes a value to a min-anchored step while keeping endpoints reachable.
- * @param {*} value The input value.
+ * Rounds a bounded value to a min-anchored step while keeping endpoints reachable.
+ * @param {number} value The bounded value.
  * @param {number} min The lower bound.
  * @param {number} max The upper bound.
  * @param {number} step The positive step size.
- * @param {number} fallback The fallback value.
  * @returns {number} The bounded value.
  */
-export function clampValue(value, min, max, step, fallback) {
-    value = Math.max(min, Math.min(max, parseNumber(value, fallback)));
-
+export function clampValue(value, min, max, step) {
     if (value === min || value === max) {
         return value;
     }
@@ -84,6 +50,7 @@ export function getPercent(value, min, max, logarithmic) {
  */
 export function getValue(percent, min, max, logarithmic) {
     percent = Math.max(0, Math.min(100, percent));
+
     if (percent === 0 || min === max) {
         return min;
     }
@@ -97,4 +64,33 @@ export function getValue(percent, min, max, logarithmic) {
         (max - min) * percent / 100);
 }
 
-export { parseNumber as toNumber };
+/**
+ * Parses a finite numeric value, using a fallback for missing or invalid input.
+ * @param {*} value The value to parse.
+ * @param {number} fallback The fallback value.
+ * @returns {number} The parsed value or fallback.
+ */
+export function parseNumber(value, fallback) {
+    if (
+        !['number', 'string'].includes(typeof value) ||
+        `${value}`.trim() === ''
+    ) {
+        return fallback;
+    }
+
+    const number = Number(value);
+
+    return Number.isFinite(number) ? number : fallback;
+}
+
+/**
+ * Parses a positive finite number, using a fallback for invalid input.
+ * @param {*} value The value to parse.
+ * @param {number} fallback The positive fallback value.
+ * @returns {number} The positive number or fallback.
+ */
+export function parsePositiveNumber(value, fallback) {
+    const number = parseNumber(value, fallback);
+
+    return number > 0 ? number : fallback;
+}

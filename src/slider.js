@@ -205,8 +205,8 @@ export default class Slider extends BaseComponent {
 
                 if (Number.isFinite(start) && Number.isFinite(end)) {
                     this.#highlights.push({
-                        start: Math.max(min, Math.min(max, Math.min(start, end))),
-                        end: Math.max(min, Math.min(max, Math.max(start, end))),
+                        start: $._clamp(Math.min(start, end), min, max),
+                        end: $._clamp(Math.max(start, end), min, max),
                         style: range.style,
                     });
                 }
@@ -499,11 +499,11 @@ export default class Slider extends BaseComponent {
             const { x, y } = getPosition(event);
             this.#drag.moved ||= x !== this.#drag.x || y !== this.#drag.y;
 
-            const previous = this.#values.join(',');
+            const previous = this.#values;
 
             this.#setHandleValue(this.#getEventValue(event), false);
 
-            if (this.#drag && previous !== this.#values.join(',')) {
+            if (this.#drag && previous.some((value, index) => value !== this.#values[index])) {
                 $.triggerEvent(this.node, 'sliding.ui.slider', {
                     detail: this.options.range ?
                         { start: this.#values[0], end: this.#values[1] } :
@@ -737,7 +737,7 @@ export default class Slider extends BaseComponent {
         const step = this.#step;
         const defaultValue = this.#defaultValue;
         const tickSnapBounds = this.#tickSnapBounds;
-        const raw = Math.max(min, Math.min(max, parseNumber(value, defaultValue)));
+        const raw = $._clamp(parseNumber(value, defaultValue), min, max);
 
         if (this.#ticks.length && (lockToTicks || snap)) {
             const closest = this.#ticks.reduce((best, tick) =>
@@ -749,7 +749,7 @@ export default class Slider extends BaseComponent {
             }
         }
 
-        return clampValue(raw, min, max, step, defaultValue);
+        return clampValue(raw, min, max, step);
     }
 
     /**
@@ -906,6 +906,13 @@ export default class Slider extends BaseComponent {
             }
         }
 
+        const labelledBy = $.getAttribute(this.node, 'aria-labelledby');
+        const label = this.options.range && labelledBy ?
+            labelledBy.split(/\s+/)
+                .map((id) => $.getText($.findOneById(id, $.getProperty(this.node, 'ownerDocument')))?.trim() || '')
+                .join(' ') :
+            $.getAttribute(this.node, 'aria-label') || this.#label;
+
         for (let index = 0; index < (this.options.range ? 2 : 1); index++) {
             const handle = $.create('button', {
                 class: this.constructor.classes.handle,
@@ -923,14 +930,6 @@ export default class Slider extends BaseComponent {
                     transform: 'translate(-50%, -50%)',
                 },
             });
-
-            const labelledBy = $.getAttribute(this.node, 'aria-labelledby');
-            const explicit = $.getAttribute(this.node, 'aria-label');
-            const label = labelledBy ?
-                labelledBy.split(/\s+/)
-                    .map((id) => $.getText($.findOneById(id, $.getProperty(this.node, 'ownerDocument')))?.trim() || '')
-                    .join(' ') :
-                explicit || this.#label;
 
             if (!this.options.range && labelledBy) {
                 $.setAttribute(handle, { 'aria-labelledby': labelledBy });
@@ -1066,10 +1065,11 @@ export default class Slider extends BaseComponent {
         this.#setBarPosition(this.#barSelection, start, end);
         this.#setBarPosition(this.#barHigh, end, this.#max);
 
+        const valueText = typeof this.options.valueText === 'function' ?
+            this.options.valueText :
+            this.constructor.defaults.valueText;
+
         for (const [index, value] of this.#values.entries()) {
-            const valueText = typeof this.options.valueText === 'function' ?
-                this.options.valueText :
-                this.constructor.defaults.valueText;
             const text = valueText.call(this, value);
 
             if (!this.node) {

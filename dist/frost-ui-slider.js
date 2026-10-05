@@ -35,37 +35,14 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 
 //#region src/helpers.js
 /**
-	* Parses a finite numeric value, using a fallback for missing or invalid input.
-	* @param {*} value The value to parse.
-	* @param {number} fallback The fallback value.
-	* @returns {number} The parsed value or fallback.
-	*/
-	function parseNumber(value, fallback) {
-		if (!["number", "string"].includes(typeof value) || `${value}`.trim() === "") return fallback;
-		const number = Number(value);
-		return Number.isFinite(number) ? number : fallback;
-	}
-	/**
-	* Parses a positive finite number, using a fallback for invalid input.
-	* @param {*} value The value to parse.
-	* @param {number} fallback The positive fallback value.
-	* @returns {number} The positive number or fallback.
-	*/
-	function parsePositiveNumber(value, fallback) {
-		const number = parseNumber(value, fallback);
-		return number > 0 ? number : fallback;
-	}
-	/**
-	* Normalizes a value to a min-anchored step while keeping endpoints reachable.
-	* @param {*} value The input value.
+	* Rounds a bounded value to a min-anchored step while keeping endpoints reachable.
+	* @param {number} value The bounded value.
 	* @param {number} min The lower bound.
 	* @param {number} max The upper bound.
 	* @param {number} step The positive step size.
-	* @param {number} fallback The fallback value.
 	* @returns {number} The bounded value.
 	*/
-	function clampValue(value, min, max, step, fallback) {
-		value = Math.max(min, Math.min(max, parseNumber(value, fallback)));
+	function clampValue(value, min, max, step) {
 		if (value === min || value === max) return value;
 		const rounded = min + Math.round((value - min) / step) * step;
 		if (!Number.isFinite(rounded)) return value;
@@ -96,6 +73,27 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 		if (percent === 0 || min === max) return min;
 		if (percent === 100) return max;
 		return min + (logarithmic ? Math.expm1(Math.log1p(max - min) * percent / 100) : (max - min) * percent / 100);
+	}
+	/**
+	* Parses a finite numeric value, using a fallback for missing or invalid input.
+	* @param {*} value The value to parse.
+	* @param {number} fallback The fallback value.
+	* @returns {number} The parsed value or fallback.
+	*/
+	function parseNumber(value, fallback) {
+		if (!["number", "string"].includes(typeof value) || `${value}`.trim() === "") return fallback;
+		const number = Number(value);
+		return Number.isFinite(number) ? number : fallback;
+	}
+	/**
+	* Parses a positive finite number, using a fallback for invalid input.
+	* @param {*} value The value to parse.
+	* @param {number} fallback The positive fallback value.
+	* @returns {number} The positive number or fallback.
+	*/
+	function parsePositiveNumber(value, fallback) {
+		const number = parseNumber(value, fallback);
+		return number > 0 ? number : fallback;
 	}
 
 //#endregion
@@ -272,8 +270,8 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 					const start = parseNumber(range?.start, NaN);
 					const end = parseNumber(range?.end, NaN);
 					if (Number.isFinite(start) && Number.isFinite(end)) this.#highlights.push({
-						start: Math.max(min, Math.min(max, Math.min(start, end))),
-						end: Math.max(min, Math.min(max, Math.max(start, end))),
+						start: _fr0st_query.default._clamp(Math.min(start, end), min, max),
+						end: _fr0st_query.default._clamp(Math.max(start, end), min, max),
 						style: range.style
 					});
 				}
@@ -454,9 +452,9 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 				if (event.cancelable) event.preventDefault();
 				const { x, y } = (0, _fr0st_ui.getPosition)(event);
 				this.#drag.moved ||= x !== this.#drag.x || y !== this.#drag.y;
-				const previous = this.#values.join(",");
+				const previous = this.#values;
 				this.#setHandleValue(this.#getEventValue(event), false);
-				if (this.#drag && previous !== this.#values.join(",")) _fr0st_query.default.triggerEvent(this.node, "sliding.ui.slider", { detail: this.options.range ? {
+				if (this.#drag && previous.some((value, index) => value !== this.#values[index])) _fr0st_query.default.triggerEvent(this.node, "sliding.ui.slider", { detail: this.options.range ? {
 					start: this.#values[0],
 					end: this.#values[1]
 				} : this.#values[0] });
@@ -608,12 +606,12 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 			const step = this.#step;
 			const defaultValue = this.#defaultValue;
 			const tickSnapBounds = this.#tickSnapBounds;
-			const raw = Math.max(min, Math.min(max, parseNumber(value, defaultValue)));
+			const raw = _fr0st_query.default._clamp(parseNumber(value, defaultValue), min, max);
 			if (this.#ticks.length && (lockToTicks || snap)) {
 				const closest = this.#ticks.reduce((best, tick) => Math.abs(tick.value - raw) < Math.abs(best.value - raw) ? tick : best);
 				if (lockToTicks || Math.abs(closest.value - raw) <= tickSnapBounds) return closest.value;
 			}
-			return clampValue(raw, min, max, step, defaultValue);
+			return clampValue(raw, min, max, step);
 		}
 		/**
 		* Reads native values after initialization, native events, or a form reset.
@@ -724,6 +722,8 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 					_fr0st_query.default.append(this.#container, label);
 				}
 			}
+			const labelledBy = _fr0st_query.default.getAttribute(this.node, "aria-labelledby");
+			const label = this.options.range && labelledBy ? labelledBy.split(/\s+/).map((id) => _fr0st_query.default.getText(_fr0st_query.default.findOneById(id, _fr0st_query.default.getProperty(this.node, "ownerDocument")))?.trim() || "").join(" ") : _fr0st_query.default.getAttribute(this.node, "aria-label") || this.#label;
 			for (let index = 0; index < (this.options.range ? 2 : 1); index++) {
 				const handle = _fr0st_query.default.create("button", {
 					class: this.constructor.classes.handle,
@@ -741,9 +741,6 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 						transform: "translate(-50%, -50%)"
 					}
 				});
-				const labelledBy = _fr0st_query.default.getAttribute(this.node, "aria-labelledby");
-				const explicit = _fr0st_query.default.getAttribute(this.node, "aria-label");
-				const label = labelledBy ? labelledBy.split(/\s+/).map((id) => _fr0st_query.default.getText(_fr0st_query.default.findOneById(id, _fr0st_query.default.getProperty(this.node, "ownerDocument")))?.trim() || "").join(" ") : explicit || this.#label;
 				if (!this.options.range && labelledBy) _fr0st_query.default.setAttribute(handle, { "aria-labelledby": labelledBy });
 				else {
 					const ariaLabel = this.options.range ? `${label || "Range"} ${index ? "end" : "start"}` : label || "Value";
@@ -845,8 +842,9 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 			this.#setBarPosition(this.#barLow, this.#min, start);
 			this.#setBarPosition(this.#barSelection, start, end);
 			this.#setBarPosition(this.#barHigh, end, this.#max);
+			const valueText = typeof this.options.valueText === "function" ? this.options.valueText : this.constructor.defaults.valueText;
 			for (const [index, value] of this.#values.entries()) {
-				const text = (typeof this.options.valueText === "function" ? this.options.valueText : this.constructor.defaults.valueText).call(this, value);
+				const text = valueText.call(this, value);
 				if (!this.node) return;
 				_fr0st_query.default.setAttribute(this.#handles[index], {
 					"aria-valuenow": value,

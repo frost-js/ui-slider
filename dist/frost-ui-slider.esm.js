@@ -3,37 +3,14 @@ import $ from "@fr0st/query";
 
 //#region src/helpers.js
 /**
-* Parses a finite numeric value, using a fallback for missing or invalid input.
-* @param {*} value The value to parse.
-* @param {number} fallback The fallback value.
-* @returns {number} The parsed value or fallback.
-*/
-function parseNumber(value, fallback) {
-	if (!["number", "string"].includes(typeof value) || `${value}`.trim() === "") return fallback;
-	const number = Number(value);
-	return Number.isFinite(number) ? number : fallback;
-}
-/**
-* Parses a positive finite number, using a fallback for invalid input.
-* @param {*} value The value to parse.
-* @param {number} fallback The positive fallback value.
-* @returns {number} The positive number or fallback.
-*/
-function parsePositiveNumber(value, fallback) {
-	const number = parseNumber(value, fallback);
-	return number > 0 ? number : fallback;
-}
-/**
-* Normalizes a value to a min-anchored step while keeping endpoints reachable.
-* @param {*} value The input value.
+* Rounds a bounded value to a min-anchored step while keeping endpoints reachable.
+* @param {number} value The bounded value.
 * @param {number} min The lower bound.
 * @param {number} max The upper bound.
 * @param {number} step The positive step size.
-* @param {number} fallback The fallback value.
 * @returns {number} The bounded value.
 */
-function clampValue(value, min, max, step, fallback) {
-	value = Math.max(min, Math.min(max, parseNumber(value, fallback)));
+function clampValue(value, min, max, step) {
 	if (value === min || value === max) return value;
 	const rounded = min + Math.round((value - min) / step) * step;
 	if (!Number.isFinite(rounded)) return value;
@@ -64,6 +41,27 @@ function getValue(percent, min, max, logarithmic) {
 	if (percent === 0 || min === max) return min;
 	if (percent === 100) return max;
 	return min + (logarithmic ? Math.expm1(Math.log1p(max - min) * percent / 100) : (max - min) * percent / 100);
+}
+/**
+* Parses a finite numeric value, using a fallback for missing or invalid input.
+* @param {*} value The value to parse.
+* @param {number} fallback The fallback value.
+* @returns {number} The parsed value or fallback.
+*/
+function parseNumber(value, fallback) {
+	if (!["number", "string"].includes(typeof value) || `${value}`.trim() === "") return fallback;
+	const number = Number(value);
+	return Number.isFinite(number) ? number : fallback;
+}
+/**
+* Parses a positive finite number, using a fallback for invalid input.
+* @param {*} value The value to parse.
+* @param {number} fallback The positive fallback value.
+* @returns {number} The positive number or fallback.
+*/
+function parsePositiveNumber(value, fallback) {
+	const number = parseNumber(value, fallback);
+	return number > 0 ? number : fallback;
 }
 
 //#endregion
@@ -240,8 +238,8 @@ var Slider = class extends BaseComponent {
 				const start = parseNumber(range?.start, NaN);
 				const end = parseNumber(range?.end, NaN);
 				if (Number.isFinite(start) && Number.isFinite(end)) this.#highlights.push({
-					start: Math.max(min, Math.min(max, Math.min(start, end))),
-					end: Math.max(min, Math.min(max, Math.max(start, end))),
+					start: $._clamp(Math.min(start, end), min, max),
+					end: $._clamp(Math.max(start, end), min, max),
 					style: range.style
 				});
 			}
@@ -422,9 +420,9 @@ var Slider = class extends BaseComponent {
 			if (event.cancelable) event.preventDefault();
 			const { x, y } = getPosition(event);
 			this.#drag.moved ||= x !== this.#drag.x || y !== this.#drag.y;
-			const previous = this.#values.join(",");
+			const previous = this.#values;
 			this.#setHandleValue(this.#getEventValue(event), false);
-			if (this.#drag && previous !== this.#values.join(",")) $.triggerEvent(this.node, "sliding.ui.slider", { detail: this.options.range ? {
+			if (this.#drag && previous.some((value, index) => value !== this.#values[index])) $.triggerEvent(this.node, "sliding.ui.slider", { detail: this.options.range ? {
 				start: this.#values[0],
 				end: this.#values[1]
 			} : this.#values[0] });
@@ -576,12 +574,12 @@ var Slider = class extends BaseComponent {
 		const step = this.#step;
 		const defaultValue = this.#defaultValue;
 		const tickSnapBounds = this.#tickSnapBounds;
-		const raw = Math.max(min, Math.min(max, parseNumber(value, defaultValue)));
+		const raw = $._clamp(parseNumber(value, defaultValue), min, max);
 		if (this.#ticks.length && (lockToTicks || snap)) {
 			const closest = this.#ticks.reduce((best, tick) => Math.abs(tick.value - raw) < Math.abs(best.value - raw) ? tick : best);
 			if (lockToTicks || Math.abs(closest.value - raw) <= tickSnapBounds) return closest.value;
 		}
-		return clampValue(raw, min, max, step, defaultValue);
+		return clampValue(raw, min, max, step);
 	}
 	/**
 	* Reads native values after initialization, native events, or a form reset.
@@ -692,6 +690,8 @@ var Slider = class extends BaseComponent {
 				$.append(this.#container, label);
 			}
 		}
+		const labelledBy = $.getAttribute(this.node, "aria-labelledby");
+		const label = this.options.range && labelledBy ? labelledBy.split(/\s+/).map((id) => $.getText($.findOneById(id, $.getProperty(this.node, "ownerDocument")))?.trim() || "").join(" ") : $.getAttribute(this.node, "aria-label") || this.#label;
 		for (let index = 0; index < (this.options.range ? 2 : 1); index++) {
 			const handle = $.create("button", {
 				class: this.constructor.classes.handle,
@@ -709,9 +709,6 @@ var Slider = class extends BaseComponent {
 					transform: "translate(-50%, -50%)"
 				}
 			});
-			const labelledBy = $.getAttribute(this.node, "aria-labelledby");
-			const explicit = $.getAttribute(this.node, "aria-label");
-			const label = labelledBy ? labelledBy.split(/\s+/).map((id) => $.getText($.findOneById(id, $.getProperty(this.node, "ownerDocument")))?.trim() || "").join(" ") : explicit || this.#label;
 			if (!this.options.range && labelledBy) $.setAttribute(handle, { "aria-labelledby": labelledBy });
 			else {
 				const ariaLabel = this.options.range ? `${label || "Range"} ${index ? "end" : "start"}` : label || "Value";
@@ -813,8 +810,9 @@ var Slider = class extends BaseComponent {
 		this.#setBarPosition(this.#barLow, this.#min, start);
 		this.#setBarPosition(this.#barSelection, start, end);
 		this.#setBarPosition(this.#barHigh, end, this.#max);
+		const valueText = typeof this.options.valueText === "function" ? this.options.valueText : this.constructor.defaults.valueText;
 		for (const [index, value] of this.#values.entries()) {
-			const text = (typeof this.options.valueText === "function" ? this.options.valueText : this.constructor.defaults.valueText).call(this, value);
+			const text = valueText.call(this, value);
 			if (!this.node) return;
 			$.setAttribute(this.#handles[index], {
 				"aria-valuenow": value,
