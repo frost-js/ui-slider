@@ -66,21 +66,12 @@ test.describe('Slider styles', () => {
 
                     const highlightBounds = await highlight.boundingBox();
                     const tickBounds = await page.locator('[data-ui-value="2"]').boundingBox();
-                    let edge;
+                    let edge = vertical ? highlightBounds.y : highlightBounds.x;
 
-                    switch (highlightEdge) {
-                        case 'left':
-                            edge = highlightBounds.x;
-                            break;
-                        case 'right':
-                            edge = highlightBounds.x + highlightBounds.width;
-                            break;
-                        case 'top':
-                            edge = highlightBounds.y;
-                            break;
-                        case 'bottom':
-                            edge = highlightBounds.y + highlightBounds.height;
-                            break;
+                    if (highlightEdge === 'right') {
+                        edge += highlightBounds.width;
+                    } else if (highlightEdge === 'bottom') {
+                        edge += highlightBounds.height;
                     }
 
                     expect(edge).toBeCloseTo(vertical ?

@@ -115,6 +115,11 @@ test.describe('Slider forms', () => {
     });
 
     test.describe('reset', () => {
+        test.beforeEach(async ({ page }) => {
+            await page.clock.install({ time: 0 });
+            await page.clock.pauseAt(1000);
+        });
+
         for (const range of [false, true]) {
             test(`restores defaults silently (range=${range})`, async ({ page }) => {
                 await page.evaluate((range) => {
@@ -124,6 +129,7 @@ test.describe('Slider forms', () => {
                     window.changes = 0;
                 }, range);
                 await page.getByRole('button', { name: 'Reset' }).click();
+                await page.clock.runFor(1);
 
                 await expect(page.locator('#slider')).toHaveValue(range ? '2,8' : '3');
                 await expect(page.getByRole('slider').first()).toHaveAttribute('aria-valuenow', range ? '2' : '3');
@@ -135,7 +141,6 @@ test.describe('Slider forms', () => {
         }
 
         test('respects a cancelled reset', async ({ page }) => {
-            await page.clock.install();
             await page.evaluate(() => {
                 UI.Slider.init($.findOne('#slider')).setValue(7);
                 const form = $.findOne('#form');
@@ -149,7 +154,6 @@ test.describe('Slider forms', () => {
         });
 
         test('retains a pending accepted reset when a later reset is cancelled', async ({ page }) => {
-            await page.clock.install();
             await page.evaluate(() => {
                 UI.Slider.init($.findOne('#slider')).setValue(7);
                 const form = $.findOne('#form');
@@ -164,6 +168,11 @@ test.describe('Slider forms', () => {
     });
 
     test.describe('disposal', () => {
+        test.beforeEach(async ({ page }) => {
+            await page.clock.install({ time: 0 });
+            await page.clock.pauseAt(1000);
+        });
+
         test('preserves another instance and consumer reset handlers', async ({ page }) => {
             await page.evaluate(() => {
                 const node = $.findOne('#slider');
@@ -175,13 +184,13 @@ test.describe('Slider forms', () => {
                 $('#slider').slider('dispose');
             });
             await page.getByRole('button', { name: 'Reset' }).click();
+            await page.clock.runFor(1);
 
             await expect(page.getByRole('slider', { name: 'Other amount' })).toHaveAttribute('aria-valuenow', '2');
             expect(await page.evaluate(() => window.resets)).toBe(1);
         });
 
         test('clears pending reset work before reinitialization', async ({ page }) => {
-            await page.clock.install();
             await page.evaluate(() => {
                 const node = $.findOne('#slider');
                 UI.Slider.init(node);

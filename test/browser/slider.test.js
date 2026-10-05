@@ -77,13 +77,9 @@ test.describe('Slider', () => {
         });
 
         test('rejects non-input nodes without registering an instance', async ({ page }) => {
-            expect(await page.evaluate(() => {
-                try {
-                    UI.Slider.init($.findOne('#outside'));
-                } catch (error) {
-                    return error.message;
-                }
-            })).toBe('Slider must be created on an input element.');
+            await expect(page.evaluate(() => UI.Slider.init($.findOne('#outside')))).rejects.toThrow(
+                'Slider must be created on an input element.',
+            );
             expect(await page.evaluate(() => $.hasData('#outside', 'slider'))).toBe(false);
         });
 

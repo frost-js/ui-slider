@@ -53,10 +53,10 @@ test.describe('Slider native state synchronization', () => {
                 });
             }
 
-            for (const { property, attribute } of [
-                { property: 'disabled', attribute: 'aria-disabled' },
-                { property: 'required', attribute: 'aria-required' },
-                { property: 'readOnly', attribute: 'aria-readonly' },
+            for (const { property, attribute, enabled } of [
+                { property: 'disabled', attribute: 'aria-disabled', enabled: false },
+                { property: 'required', attribute: 'aria-required', enabled: true },
+                { property: 'readOnly', attribute: 'aria-readonly', enabled: true },
             ]) {
                 test(`inherits native ${property} and observes changes and removal`, async ({ page }) => {
                     await page.evaluate(({ range, property }) => {
@@ -67,19 +67,9 @@ test.describe('Slider native state synchronization', () => {
                     const handles = page.getByRole('slider');
                     for (const handle of await handles.all()) {
                         await expect(handle).toHaveAttribute(attribute, 'true');
+                        await expect(handle).toBeEnabled({ enabled });
                     }
-                    if (property === 'disabled') {
-                        for (const handle of await handles.all()) {
-                            await expect(handle).toBeDisabled();
-                        }
-                    } else if (property === 'readOnly') {
-                        await handles.first().focus();
-                        await expect(handles.first()).toBeFocused();
-                        await handles.first().press('End');
-                        await page.evaluate(dispatchDragEvent, { type: 'touchstart', fraction: .5 });
-                        await page.evaluate(dispatchDragEvent, { type: 'touchend', fraction: .7 });
-                        await expect(page.locator('#slider')).toHaveValue(range ? '2,8' : '3');
-                    }
+
                     await page.evaluate((property) => $.setProperty('#slider', property, false), property);
                     for (const handle of await handles.all()) {
                         await expect(handle).toHaveAttribute(attribute, 'false');
@@ -91,6 +81,29 @@ test.describe('Slider native state synchronization', () => {
                     expect(await page.evaluate(() => window.stateEvents)).toEqual(['change']);
                 });
             }
+
+            test('keeps read-only handles focusable and ignores keyboard and touch edits', async ({ page }) => {
+                await page.evaluate((range) => {
+                    $.setProperty('#slider', 'readOnly', true);
+                    UI.Slider.init($.findOne('#slider'), { range, tooltip: false });
+                }, range);
+
+                const handle = page.getByRole('slider').first();
+                await handle.focus();
+                await expect(handle).toBeFocused();
+                await handle.press('End');
+                await page.evaluate(dispatchDragEvent, { type: 'touchstart', fraction: .5 });
+                await page.evaluate(dispatchDragEvent, { type: 'touchend', fraction: .7 });
+
+                await expect(page.locator('#slider')).toHaveValue(range ? '2,8' : '3');
+                expect(await page.evaluate(() => window.stateEvents)).toEqual([]);
+
+                await page.evaluate(() => $.setProperty('#slider', 'readOnly', false));
+                await handle.press('ArrowRight');
+
+                await expect(page.locator('#slider')).toHaveValue(range ? '3,8' : '4');
+                expect(await page.evaluate(() => window.stateEvents)).toEqual(['change']);
+            });
 
             for (const { attribute, initial, updated } of [
                 { attribute: 'aria-describedby', initial: 'hint', updated: 'updated-hint' },

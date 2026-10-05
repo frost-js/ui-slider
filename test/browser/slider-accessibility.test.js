@@ -6,7 +6,7 @@ test.describe('Slider accessibility and tooltips', () => {
             $.setHtml(document.body,
                 '<button id="outside">Outside</button>' +
                 '<div id="host" style="width:360px;margin:40px">' +
-                '<label for="slider">Amount</label><input id="slider" value="3"><input id="slider2" value="7"></div>',
+                '<label for="slider">Amount</label><input id="slider" value="3"></div>',
             );
         });
     });
