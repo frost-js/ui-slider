@@ -309,6 +309,15 @@ test.describe('Slider', () => {
     });
 
     test.describe('#setValue', () => {
+        test('preserves large integer values on the step grid', async ({ page }) => {
+            await page.evaluate(() => {
+                UI.Slider.init($.findOne('#slider'), { max: 1e16, step: 1 }).setValue(1234567890123456);
+            });
+
+            await expect(page.locator('#slider')).toHaveValue('1234567890123456');
+            await expect(page.getByRole('slider')).toHaveAttribute('aria-valuenow', '1234567890123456');
+        });
+
         for (const { name, setValue } of [
             { name: 'class', setValue: () => $.getData('#slider', 'slider').setValue(7) },
             { name: 'QuerySet', setValue: () => $('#slider').slider('setValue', 7) },
@@ -388,6 +397,27 @@ test.describe('Slider', () => {
 
             await expect(page.getByRole('slider')).toHaveAttribute('aria-describedby', 'help');
             await expect(page.getByRole('slider')).toHaveAttribute('aria-invalid', 'true');
+        });
+
+        test('preserves help descriptions while showing and hiding the tooltip', async ({ page }) => {
+            await page.evaluate(() => {
+                $.append('#host', '<p id="help">First help</p><p id="other-help">Second help</p>');
+                $.setAttribute('#slider', 'aria-describedby', 'help other-help');
+                UI.Slider.init($.findOne('#slider'));
+            });
+
+            const handle = page.getByRole('slider');
+            await handle.focus();
+            await expect(page.getByRole('tooltip')).toBeVisible();
+            const tooltipId = await page.getByRole('tooltip').getAttribute('id');
+            await expect(handle).toHaveAttribute('aria-describedby', `help other-help ${tooltipId}`);
+            await expect(handle).toHaveAccessibleDescription('First help Second help 3');
+            await page.evaluate(() => $('#slider').slider('setValue', 5));
+            await expect(handle).toHaveAttribute('aria-describedby', `help other-help ${tooltipId}`);
+            await page.locator('#outside').focus();
+            await expect(page.getByRole('tooltip')).toHaveCount(0);
+            await expect(handle).toHaveAttribute('aria-describedby', 'help other-help');
+            await expect(handle).toHaveAccessibleDescription('First help Second help');
         });
     });
 
@@ -817,6 +847,33 @@ test.describe('Slider', () => {
     });
 
     test.describe('step option', () => {
+        for (const { min, max, step, expected } of [
+            { min: 0, max: 10, step: 3, expected: '9' },
+            { min: .1, max: .4, step: .1, expected: '0.3' },
+            { min: .1, max: .8, step: .2, expected: '0.7' },
+        ]) {
+            test(`moves to the adjacent step below max=${max} with min=${min} and step=${step}`, async ({ page }) => {
+                await page.evaluate(({ min, max, step }) => {
+                    UI.Slider.init($.findOne('#slider'), { min, max, step });
+                }, { min, max, step });
+                await page.getByRole('slider').press('End');
+                await page.getByRole('slider').press('ArrowLeft');
+
+                await expect(page.locator('#slider')).toHaveValue(expected);
+            });
+        }
+
+        test('keeps finite values when the step count overflows', async ({ page }) => {
+            await page.evaluate(() => {
+                UI.Slider.init($.findOne('#slider'), { step: 1e-309 }).setValue(1);
+            });
+
+            await expect(page.locator('#slider')).toHaveValue('1');
+            await expect(page.getByRole('slider')).toHaveAttribute('aria-valuenow', '1');
+            await page.getByRole('slider').press('ArrowRight');
+            await expect(page.locator('#slider')).toHaveValue('1');
+        });
+
         test('rounds decimal steps relative to the minimum', async ({ page }) => {
             await page.evaluate(() => UI.Slider.init($.findOne('#slider'), { min: .1, step: .2 }).setValue(.24));
 
@@ -997,6 +1054,32 @@ test.describe('Slider', () => {
                 await expect(page.locator('#slider')).toHaveValue(expected);
             });
         }
+
+        for (const { key, value } of [
+            { key: 'Control+ArrowRight', value: 0 },
+            { key: 'Control+ArrowLeft', value: 10 },
+        ]) {
+            test(`preserves off-step ticks with ${key}`, async ({ page }) => {
+                await page.evaluate((value) => {
+                    UI.Slider.init($.findOne('#slider'), { ticks: [0, 2.5, 10], step: 1 }).setValue(value);
+                }, value);
+                await page.getByRole('slider').press(key);
+
+                await expect(page.locator('#slider')).toHaveValue('2.5');
+                await page.getByRole('slider').press('ArrowRight');
+                await expect(page.locator('#slider')).toHaveValue('3');
+            });
+        }
+
+        test('reaches the bound after the last off-step tick without snapping back', async ({ page }) => {
+            await page.evaluate(() => {
+                UI.Slider.init($.findOne('#slider'), { ticks: [9.8], tickSnapBounds: 1 }).setValue(10);
+            });
+            await page.getByRole('slider').press('Control+ArrowLeft');
+            await expect(page.locator('#slider')).toHaveValue('9.8');
+            await page.getByRole('slider').press('Control+ArrowRight');
+            await expect(page.locator('#slider')).toHaveValue('10');
+        });
 
         test('sets a range endpoint when a tick is clicked', async ({ page }) => {
             await page.evaluate(() => UI.Slider.init($.findOne('#slider'), { range: true, ticks: [0, 2.5, 10] }).setValue(0, 8));

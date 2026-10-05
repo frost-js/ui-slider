@@ -122,7 +122,6 @@ export default class Slider extends BaseComponent {
     #sliderSize;
     #step;
     #synchronize;
-    #syncing = false;
     #tabIndex;
     #ticks = [];
     #tickSize;
@@ -357,8 +356,8 @@ export default class Slider extends BaseComponent {
             $.focus(this.#handles[0]);
         });
 
-        this.#synchronize = () => {
-            if (!this.#syncing && this.node) {
+        this.#synchronize = (event) => {
+            if (!event?.skipUpdate && this.node) {
                 this.#drag = null;
                 this.#tooltipTriggers.delete('drag');
 
@@ -578,6 +577,7 @@ export default class Slider extends BaseComponent {
             const original = this.#values[this.#active];
             let value;
             let direction;
+            let snap = false;
 
             switch (event.key) {
                 case 'Home':
@@ -604,20 +604,25 @@ export default class Slider extends BaseComponent {
             event.preventDefault();
 
             if (direction) {
-                if (event.ctrlKey || this.options.lockToTicks) {
+                if (event.ctrlKey || (this.options.lockToTicks && this.#ticks.length)) {
                     const ticks = direction > 0 ? this.#ticks : this.#ticks.slice().reverse();
                     value = ticks.find((tick) => direction * (tick.value - original) > 0)?.value;
+                    snap = value !== undefined;
                     value ??= direction > 0 ? this.#max : this.#min;
-
-                    if (!ticks.length && !event.ctrlKey) {
-                        value = original + direction * this.#step;
-                    }
                 } else {
-                    value = original + direction * this.#step;
+                    // Select the adjacent min-anchored step, including off-step endpoints.
+                    const steps = (original - this.#min) / this.#step;
+                    const tolerance = Number.EPSILON * Math.max(1, Math.abs(steps));
+                    const next = direction > 0 ? Math.floor(steps + tolerance) + 1 : Math.ceil(steps - tolerance) - 1;
+                    value = this.#min + next * this.#step;
+
+                    if (!Number.isFinite(value)) {
+                        value = original;
+                    }
                 }
             }
 
-            this.#setHandleValue(this.#normalizeValue(value), true);
+            this.#setHandleValue(this.#normalizeValue(value, snap), true);
         });
 
         $.addEvent(this.#container, 'focusin.ui.slider', (event) => {
@@ -813,6 +818,16 @@ export default class Slider extends BaseComponent {
             this.#tooltip.hide();
         } else if (this.options.tooltip === 'always' || this.#tooltipTriggers.size) {
             this.#tooltip.show();
+
+            const description = $.getAttribute(this.node, 'aria-describedby');
+
+            if (!this.options.range && description) {
+                // Tooltip replaces this attribute when shown; retain the input's help references.
+                const current = $.getAttribute(this.#handles[0], 'aria-describedby') || '';
+                const ids = [...new Set(`${description} ${current}`.trim().split(/\s+/))];
+
+                $.setAttribute(this.#handles[0], 'aria-describedby', ids.join(' '));
+            }
         } else {
             this.#tooltip.hide();
         }
@@ -938,6 +953,16 @@ export default class Slider extends BaseComponent {
                 placement: this.options.tooltipPlacement || (vertical ? 'right' : 'top'),
                 spacing: this.options.range ? (this.#handleSize - this.#sliderSize) / 2 : 0,
             });
+
+            if (!this.options.range) {
+                $.addEvent(this.#handles[0], 'hidden.ui.tooltip', (event) => {
+                    const description = $.getAttribute(this.node, 'aria-describedby');
+
+                    if (description !== null) {
+                        $.setAttribute(event.currentTarget, 'aria-describedby', description);
+                    }
+                });
+            }
         }
 
         $.addClass(this.node, this.constructor.classes.hide);
@@ -1120,14 +1145,9 @@ export default class Slider extends BaseComponent {
             $.setValue(this.node, value);
 
             if (emit) {
-                // Keep our native change listener from treating this notification as external input.
-                this.#syncing = true;
-
-                try {
-                    $.triggerEvent(this.node, 'change.ui.slider');
-                } finally {
-                    this.#syncing = false;
-                }
+                $.triggerEvent(this.node, 'change.ui.slider', {
+                    data: { skipUpdate: true },
+                });
             }
         }
     }

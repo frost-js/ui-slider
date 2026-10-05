@@ -47,8 +47,13 @@ export function clampValue(value, min, max, step, fallback) {
 
     const rounded = min + Math.round((value - min) / step) * step;
 
+    // A step finer than floating-point resolution can overflow the step count.
+    if (!Number.isFinite(rounded)) {
+        return value;
+    }
+
     // Remove arithmetic noise without imposing a fixed number of decimal places.
-    return Math.max(min, Math.min(max, Number(rounded.toPrecision(15))));
+    return Math.max(min, Math.min(max, Number.isInteger(rounded) ? rounded : Number(rounded.toPrecision(15))));
 }
 
 /**

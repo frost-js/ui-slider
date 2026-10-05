@@ -68,7 +68,8 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 		value = Math.max(min, Math.min(max, parseNumber(value, fallback)));
 		if (value === min || value === max) return value;
 		const rounded = min + Math.round((value - min) / step) * step;
-		return Math.max(min, Math.min(max, Number(rounded.toPrecision(15))));
+		if (!Number.isFinite(rounded)) return value;
+		return Math.max(min, Math.min(max, Number.isInteger(rounded) ? rounded : Number(rounded.toPrecision(15))));
 	}
 	/**
 	* Converts a value to a percentage, including fixed and shifted logarithmic ranges.
@@ -214,7 +215,6 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 		#sliderSize;
 		#step;
 		#synchronize;
-		#syncing = false;
 		#tabIndex;
 		#ticks = [];
 		#tickSize;
@@ -373,8 +373,8 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 			_fr0st_query.default.addEvent(this.node, "focus.ui.slider", () => {
 				_fr0st_query.default.focus(this.#handles[0]);
 			});
-			this.#synchronize = () => {
-				if (!this.#syncing && this.node) {
+			this.#synchronize = (event) => {
+				if (!event?.skipUpdate && this.node) {
 					this.#drag = null;
 					this.#tooltipTriggers.delete("drag");
 					this.#refresh(false);
@@ -498,6 +498,7 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 				const original = this.#values[this.#active];
 				let value;
 				let direction;
+				let snap = false;
 				switch (event.key) {
 					case "Home":
 						value = this.#min;
@@ -518,14 +519,19 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 				}
 				event.preventDefault();
 				if (direction) {
-					if (event.ctrlKey || this.options.lockToTicks) {
-						const ticks = direction > 0 ? this.#ticks : this.#ticks.slice().reverse();
-						value = ticks.find((tick) => direction * (tick.value - original) > 0)?.value;
+					if (event.ctrlKey || this.options.lockToTicks && this.#ticks.length) {
+						value = (direction > 0 ? this.#ticks : this.#ticks.slice().reverse()).find((tick) => direction * (tick.value - original) > 0)?.value;
+						snap = value !== void 0;
 						value ??= direction > 0 ? this.#max : this.#min;
-						if (!ticks.length && !event.ctrlKey) value = original + direction * this.#step;
-					} else value = original + direction * this.#step;
+					} else {
+						const steps = (original - this.#min) / this.#step;
+						const tolerance = Number.EPSILON * Math.max(1, Math.abs(steps));
+						const next = direction > 0 ? Math.floor(steps + tolerance) + 1 : Math.ceil(steps - tolerance) - 1;
+						value = this.#min + next * this.#step;
+						if (!Number.isFinite(value)) value = original;
+					}
 				}
-				this.#setHandleValue(this.#normalizeValue(value), true);
+				this.#setHandleValue(this.#normalizeValue(value, snap), true);
 			});
 			_fr0st_query.default.addEvent(this.#container, "focusin.ui.slider", (event) => {
 				const active = this.#handles.indexOf(event.target);
@@ -651,8 +657,15 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 		#refreshTooltip() {
 			if (!this.node || !this.#tooltip || !this.#values.length) return;
 			if (_fr0st_query.default.is(this.node, ":disabled")) this.#tooltip.hide();
-			else if (this.options.tooltip === "always" || this.#tooltipTriggers.size) this.#tooltip.show();
-			else this.#tooltip.hide();
+			else if (this.options.tooltip === "always" || this.#tooltipTriggers.size) {
+				this.#tooltip.show();
+				const description = _fr0st_query.default.getAttribute(this.node, "aria-describedby");
+				if (!this.options.range && description) {
+					const current = _fr0st_query.default.getAttribute(this.#handles[0], "aria-describedby") || "";
+					const ids = [...new Set(`${description} ${current}`.trim().split(/\s+/))];
+					_fr0st_query.default.setAttribute(this.#handles[0], "aria-describedby", ids.join(" "));
+				}
+			} else this.#tooltip.hide();
 		}
 		/**
 		* Renders the UI utility-based track, intervals, ticks, and handles.
@@ -739,12 +752,18 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 				_fr0st_query.default.append(this.#container, handle);
 				this.#handles.push(handle);
 			}
-			if (this.options.tooltip) this.#tooltip = _fr0st_ui.Tooltip.init(this.options.range ? this.#barSelection : this.#handles[0], {
-				appendTo: _fr0st_query.default.findOne("body"),
-				trigger: "",
-				placement: this.options.tooltipPlacement || (vertical ? "right" : "top"),
-				spacing: this.options.range ? (this.#handleSize - this.#sliderSize) / 2 : 0
-			});
+			if (this.options.tooltip) {
+				this.#tooltip = _fr0st_ui.Tooltip.init(this.options.range ? this.#barSelection : this.#handles[0], {
+					appendTo: _fr0st_query.default.findOne("body"),
+					trigger: "",
+					placement: this.options.tooltipPlacement || (vertical ? "right" : "top"),
+					spacing: this.options.range ? (this.#handleSize - this.#sliderSize) / 2 : 0
+				});
+				if (!this.options.range) _fr0st_query.default.addEvent(this.#handles[0], "hidden.ui.tooltip", (event) => {
+					const description = _fr0st_query.default.getAttribute(this.node, "aria-describedby");
+					if (description !== null) _fr0st_query.default.setAttribute(event.currentTarget, "aria-describedby", description);
+				});
+			}
 			_fr0st_query.default.addClass(this.node, this.constructor.classes.hide);
 			_fr0st_query.default.setAttribute(this.node, {
 				"tabindex": "-1",
@@ -858,14 +877,7 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 				const value = this.#values.join(this.#rangeSeparator);
 				if (value === _fr0st_query.default.getValue(this.node)) return;
 				_fr0st_query.default.setValue(this.node, value);
-				if (emit) {
-					this.#syncing = true;
-					try {
-						_fr0st_query.default.triggerEvent(this.node, "change.ui.slider");
-					} finally {
-						this.#syncing = false;
-					}
-				}
+				if (emit) _fr0st_query.default.triggerEvent(this.node, "change.ui.slider", { data: { skipUpdate: true } });
 			}
 		}
 	};

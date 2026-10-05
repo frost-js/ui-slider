@@ -33,6 +33,25 @@ test.describe('Slider forms', () => {
                 await expect(page.locator('#slider')).toHaveValue('7');
                 expect(await page.evaluate(() => window.changes)).toBe(type === 'change' ? 1 : 0);
             });
+
+            test(`synchronizes native ${type} dispatched inside a component change listener`, async ({ page }) => {
+                await page.evaluate((type) => {
+                    const node = $.findOne('#slider');
+                    const instance = UI.Slider.init(node);
+
+                    $.addEventOnce(node, 'change.ui.slider', () => {
+                        node.value = '7';
+                        node.dispatchEvent(new Event(type, { bubbles: true }));
+                    });
+
+                    instance.setValue(8);
+                }, type);
+
+                await expect(page.getByRole('slider')).toHaveAttribute('aria-valuenow', '7');
+                expect(await page.evaluate(() => $('#slider').slider('getValue'))).toBe(7);
+                expect(await page.evaluate(() => new FormData($.findOne('#form')).get('amount'))).toBe('7');
+                expect(await page.evaluate(() => window.changes)).toBe(type === 'change' ? 2 : 1);
+            });
         }
 
         test('replaces a drag preview with an external value', async ({ page }) => {
