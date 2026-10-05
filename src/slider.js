@@ -2,6 +2,13 @@ import $ from '@fr0st/query';
 import { BaseComponent, getDataset, Tooltip } from '@fr0st/ui';
 import { clampValue, getPercent, getValue, parseNumber, validateOptions } from './helpers.js';
 
+const ariaAttributes = [
+    'aria-describedby',
+    'aria-errormessage',
+    'aria-invalid',
+    'aria-required',
+];
+
 /**
  * @typedef {object} RangeHighlight
  * @property {number} start The first highlighted value.
@@ -134,7 +141,7 @@ export default class Slider extends BaseComponent {
             this.#events();
             this.#readInput();
             if (this.node) {
-                this.#refreshDisabled();
+                this.#refreshState();
             }
             if (this.node && focused) {
                 $.focus(this.#handles[0]);
@@ -150,10 +157,7 @@ export default class Slider extends BaseComponent {
      */
     disable() {
         $.setProperty(this.node, { disabled: true });
-        this.#cancelDrag();
-        if (this.node) {
-            this.#refreshDisabled();
-        }
+        this.#refreshState();
     }
 
     /** @inheritdoc */
@@ -211,7 +215,7 @@ export default class Slider extends BaseComponent {
      */
     enable() {
         $.setProperty(this.node, { disabled: false });
-        this.#refreshDisabled();
+        this.#refreshState();
     }
 
     /**
@@ -250,6 +254,10 @@ export default class Slider extends BaseComponent {
         if (this.#active !== active) {
             this.#active = active;
             $.focus(this.#handles[active]);
+            if (this.node && ($.is(this.node, ':disabled') || $.getProperty(this.node, 'readOnly'))) {
+                this.#refreshState();
+                return;
+            }
         }
         if (this.node) {
             this.#setValues(values, { commit, normalized: true });
@@ -316,7 +324,8 @@ export default class Slider extends BaseComponent {
             this.#drag ||
             event.button !== 0 ||
             event.isPrimary === false ||
-            $.is(this.node, ':disabled')
+            $.is(this.node, ':disabled') ||
+            $.getProperty(this.node, 'readOnly')
         ) {
             return;
         }
@@ -337,7 +346,7 @@ export default class Slider extends BaseComponent {
             return Math.abs(coordinate - center) < Math.abs(coordinate - previousCenter) ? index : closest;
         }, 0) : handleIndex;
         $.focus(this.#handles[this.#active]);
-        if (!this.node || $.is(this.node, ':disabled')) {
+        if (!this.node || $.is(this.node, ':disabled') || $.getProperty(this.node, 'readOnly')) {
             return;
         }
 
@@ -380,7 +389,7 @@ export default class Slider extends BaseComponent {
                 this.#cancelDrag();
                 this.#readInput(false);
                 if (this.node) {
-                    this.#refreshDisabled();
+                    this.#refreshState();
                 }
             }
         };
@@ -388,15 +397,13 @@ export default class Slider extends BaseComponent {
         this.node.addEventListener('change', synchronize, options);
         this.#observer = new window.MutationObserver(() => {
             if (this.node) {
-                if ($.is(this.node, ':disabled')) {
-                    this.#cancelDrag();
-                }
-                if (this.node) {
-                    this.#refreshDisabled();
-                }
+                this.#refreshState();
             }
         });
-        this.#observer.observe(this.node, { attributes: true, attributeFilter: ['disabled'] });
+        this.#observer.observe(this.node, {
+            attributes: true,
+            attributeFilter: ['disabled', 'required', 'readonly', ...ariaAttributes],
+        });
         for (const fieldset of $.parents(this.node, 'fieldset')) {
             this.#observer.observe(fieldset, { attributes: true, attributeFilter: ['disabled'] });
         }
@@ -451,7 +458,7 @@ export default class Slider extends BaseComponent {
      * @param {KeyboardEvent} event The keyboard event.
      */
     #key(event) {
-        if (!this.node || !this.#handles.includes(event.target) || $.is(this.node, ':disabled')) {
+        if (!this.node || !this.#handles.includes(event.target) || $.is(this.node, ':disabled') || $.getProperty(this.node, 'readOnly')) {
             return;
         }
         const original = this.#values[this.#active];
@@ -502,7 +509,7 @@ export default class Slider extends BaseComponent {
         if (!this.#drag || event.pointerId !== this.#drag.id) {
             return;
         }
-        if ($.is(this.node, ':disabled')) {
+        if ($.is(this.node, ':disabled') || $.getProperty(this.node, 'readOnly')) {
             this.#cancelDrag();
             return;
         }
@@ -625,14 +632,35 @@ export default class Slider extends BaseComponent {
     }
 
     /**
-     * Updates disabled presentation and tooltip visibility.
+     * Synchronizes native input state and inherited accessibility attributes.
      */
-    #refreshDisabled() {
+    #refreshState() {
         const disabled = $.is(this.node, ':disabled');
+        const readOnly = Boolean($.getProperty(this.node, 'readOnly'));
+        if (disabled || readOnly) {
+            this.#cancelDrag();
+            if (!this.node) {
+                return;
+            }
+        }
         $.setStyle(this.#container, { opacity: disabled ? this.options.disabledOpacity : '' });
         for (const handle of this.#handles) {
             $.setProperty(handle, { disabled });
-            $.setAttribute(handle, { 'aria-disabled': String(disabled) });
+            $.setAttribute(handle, {
+                'aria-disabled': String(disabled),
+                'aria-readonly': String(readOnly),
+                'aria-required': String(Boolean($.getProperty(this.node, 'required'))),
+            });
+            for (const attribute of ariaAttributes) {
+                const value = $.getAttribute(this.node, attribute);
+                if (value === null) {
+                    if (attribute !== 'aria-required') {
+                        $.removeAttribute(handle, attribute);
+                    }
+                } else {
+                    $.setAttribute(handle, { [attribute]: value });
+                }
+            }
         }
         this.#refreshTooltip();
     }
@@ -712,11 +740,6 @@ export default class Slider extends BaseComponent {
                 $.setAttribute(handle, { 'aria-labelledby': labelledBy });
             } else {
                 $.setAttribute(handle, { 'aria-label': this.options.range ? `${label || 'Range'} ${index ? 'end' : 'start'}` : label || 'Value' });
-            }
-            for (const attribute of ['aria-describedby', 'aria-invalid']) {
-                if ($.hasAttribute(this.node, attribute)) {
-                    $.setAttribute(handle, { [attribute]: $.getAttribute(this.node, attribute) });
-                }
             }
             $.append(this.#container, handle);
             this.#handles.push(handle);
@@ -853,16 +876,20 @@ export default class Slider extends BaseComponent {
         if (!this.#drag || event.pointerId !== this.#drag.id) {
             return;
         }
-        if ($.is(this.node, ':disabled')) {
+        if ($.is(this.node, ':disabled') || $.getProperty(this.node, 'readOnly')) {
             this.#cancelDrag();
             return;
         }
         const value = this.#pointerValue(event);
         this.#dragController.abort();
         this.#dragController = null;
+        this.#applyValue(value, true);
+        if (!this.node || !this.#drag) {
+            return;
+        }
         this.#drag = null;
         this.#tooltipTriggers.delete('drag');
-        this.#applyValue(value, true);
+        this.#refreshTooltip();
         if (this.node) {
             $.focus(this.#handles[this.#active]);
             if (this.node) {

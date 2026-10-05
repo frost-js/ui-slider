@@ -131,7 +131,13 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 
 //#endregion
 //#region src/slider.js
-/**
+	var ariaAttributes = [
+		"aria-describedby",
+		"aria-errormessage",
+		"aria-invalid",
+		"aria-required"
+	];
+	/**
 	* @typedef {object} RangeHighlight
 	* @property {number} start The first highlighted value.
 	* @property {number} end The last highlighted value.
@@ -258,7 +264,7 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 				this.#render();
 				this.#events();
 				this.#readInput();
-				if (this.node) this.#refreshDisabled();
+				if (this.node) this.#refreshState();
 				if (this.node && focused) _fr0st_query.default.focus(this.#handles[0]);
 			} catch (error) {
 				this.dispose();
@@ -270,8 +276,7 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 		*/
 		disable() {
 			_fr0st_query.default.setProperty(this.node, { disabled: true });
-			this.#cancelDrag();
-			if (this.node) this.#refreshDisabled();
+			this.#refreshState();
 		}
 		/** @inheritdoc */
 		dispose() {
@@ -311,7 +316,7 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 		*/
 		enable() {
 			_fr0st_query.default.setProperty(this.node, { disabled: false });
-			this.#refreshDisabled();
+			this.#refreshState();
 		}
 		/**
 		* Gets the current value, including an uncommitted drag preview.
@@ -344,6 +349,10 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 			if (this.#active !== active) {
 				this.#active = active;
 				_fr0st_query.default.focus(this.#handles[active]);
+				if (this.node && (_fr0st_query.default.is(this.node, ":disabled") || _fr0st_query.default.getProperty(this.node, "readOnly"))) {
+					this.#refreshState();
+					return;
+				}
 			}
 			if (this.node) this.#setValues(values, {
 				commit,
@@ -398,7 +407,7 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 		* @param {PointerEvent} event The initiating event.
 		*/
 		#down(event) {
-			if (!this.node || this.#drag || event.button !== 0 || event.isPrimary === false || _fr0st_query.default.is(this.node, ":disabled")) return;
+			if (!this.node || this.#drag || event.button !== 0 || event.isPrimary === false || _fr0st_query.default.is(this.node, ":disabled") || _fr0st_query.default.getProperty(this.node, "readOnly")) return;
 			const target = event.target.closest("[role=\"slider\"], [data-ui-value]") || (this.#slider.contains(event.target) ? this.#slider : null);
 			if (!target || !this.#container.contains(target)) return;
 			event.preventDefault();
@@ -413,7 +422,7 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 				return Math.abs(coordinate - center) < Math.abs(coordinate - previousCenter) ? index : closest;
 			}, 0) : handleIndex;
 			_fr0st_query.default.focus(this.#handles[this.#active]);
-			if (!this.node || _fr0st_query.default.is(this.node, ":disabled")) return;
+			if (!this.node || _fr0st_query.default.is(this.node, ":disabled") || _fr0st_query.default.getProperty(this.node, "readOnly")) return;
 			const window = this.node.ownerDocument.defaultView;
 			this.#drag = {
 				id: event.pointerId,
@@ -447,20 +456,22 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 				if (!this.#syncing && this.node) {
 					this.#cancelDrag();
 					this.#readInput(false);
-					if (this.node) this.#refreshDisabled();
+					if (this.node) this.#refreshState();
 				}
 			};
 			this.node.addEventListener("input", synchronize, options);
 			this.node.addEventListener("change", synchronize, options);
 			this.#observer = new window.MutationObserver(() => {
-				if (this.node) {
-					if (_fr0st_query.default.is(this.node, ":disabled")) this.#cancelDrag();
-					if (this.node) this.#refreshDisabled();
-				}
+				if (this.node) this.#refreshState();
 			});
 			this.#observer.observe(this.node, {
 				attributes: true,
-				attributeFilter: ["disabled"]
+				attributeFilter: [
+					"disabled",
+					"required",
+					"readonly",
+					...ariaAttributes
+				]
 			});
 			for (const fieldset of _fr0st_query.default.parents(this.node, "fieldset")) this.#observer.observe(fieldset, {
 				attributes: true,
@@ -513,7 +524,7 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 		* @param {KeyboardEvent} event The keyboard event.
 		*/
 		#key(event) {
-			if (!this.node || !this.#handles.includes(event.target) || _fr0st_query.default.is(this.node, ":disabled")) return;
+			if (!this.node || !this.#handles.includes(event.target) || _fr0st_query.default.is(this.node, ":disabled") || _fr0st_query.default.getProperty(this.node, "readOnly")) return;
 			const original = this.#values[this.#active];
 			let value;
 			let direction;
@@ -552,7 +563,7 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 		*/
 		#move(event) {
 			if (!this.#drag || event.pointerId !== this.#drag.id) return;
-			if (_fr0st_query.default.is(this.node, ":disabled")) {
+			if (_fr0st_query.default.is(this.node, ":disabled") || _fr0st_query.default.getProperty(this.node, "readOnly")) {
 				this.#cancelDrag();
 				return;
 			}
@@ -651,14 +662,29 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 			this.#setValues(this.options.range ? [values[0], values[1]] : values, { emit });
 		}
 		/**
-		* Updates disabled presentation and tooltip visibility.
+		* Synchronizes native input state and inherited accessibility attributes.
 		*/
-		#refreshDisabled() {
+		#refreshState() {
 			const disabled = _fr0st_query.default.is(this.node, ":disabled");
+			const readOnly = Boolean(_fr0st_query.default.getProperty(this.node, "readOnly"));
+			if (disabled || readOnly) {
+				this.#cancelDrag();
+				if (!this.node) return;
+			}
 			_fr0st_query.default.setStyle(this.#container, { opacity: disabled ? this.options.disabledOpacity : "" });
 			for (const handle of this.#handles) {
 				_fr0st_query.default.setProperty(handle, { disabled });
-				_fr0st_query.default.setAttribute(handle, { "aria-disabled": String(disabled) });
+				_fr0st_query.default.setAttribute(handle, {
+					"aria-disabled": String(disabled),
+					"aria-readonly": String(readOnly),
+					"aria-required": String(Boolean(_fr0st_query.default.getProperty(this.node, "required")))
+				});
+				for (const attribute of ariaAttributes) {
+					const value = _fr0st_query.default.getAttribute(this.node, attribute);
+					if (value === null) {
+						if (attribute !== "aria-required") _fr0st_query.default.removeAttribute(handle, attribute);
+					} else _fr0st_query.default.setAttribute(handle, { [attribute]: value });
+				}
 			}
 			this.#refreshTooltip();
 		}
@@ -725,7 +751,6 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 				const label = labelledBy ? labelledBy.split(/\s+/).map((id) => _fr0st_query.default.getText(_fr0st_query.default.findOneById(id, this.node.ownerDocument))?.trim() || "").join(" ") : explicit || this.#label;
 				if (!this.options.range && labelledBy) _fr0st_query.default.setAttribute(handle, { "aria-labelledby": labelledBy });
 				else _fr0st_query.default.setAttribute(handle, { "aria-label": this.options.range ? `${label || "Range"} ${index ? "end" : "start"}` : label || "Value" });
-				for (const attribute of ["aria-describedby", "aria-invalid"]) if (_fr0st_query.default.hasAttribute(this.node, attribute)) _fr0st_query.default.setAttribute(handle, { [attribute]: _fr0st_query.default.getAttribute(this.node, attribute) });
 				_fr0st_query.default.append(this.#container, handle);
 				this.#handles.push(handle);
 			}
@@ -841,16 +866,18 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 		*/
 		#up(event) {
 			if (!this.#drag || event.pointerId !== this.#drag.id) return;
-			if (_fr0st_query.default.is(this.node, ":disabled")) {
+			if (_fr0st_query.default.is(this.node, ":disabled") || _fr0st_query.default.getProperty(this.node, "readOnly")) {
 				this.#cancelDrag();
 				return;
 			}
 			const value = this.#pointerValue(event);
 			this.#dragController.abort();
 			this.#dragController = null;
+			this.#applyValue(value, true);
+			if (!this.node || !this.#drag) return;
 			this.#drag = null;
 			this.#tooltipTriggers.delete("drag");
-			this.#applyValue(value, true);
+			this.#refreshTooltip();
 			if (this.node) {
 				_fr0st_query.default.focus(this.#handles[this.#active]);
 				if (this.node) _fr0st_query.default.triggerEvent(this.node, "slid.ui.slider", { detail: this.#detail() });

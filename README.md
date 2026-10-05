@@ -231,7 +231,7 @@ price.dispose();
 
 For a range, pass two arguments to `setValue`; a missing endpoint uses `defaultValue`.
 
-Disposal restores the input's previous hidden class and `tabindex`, preserves other classes and the committed value, and cancels pending reset work.
+Disposal restores the input's previous hidden class, `tabindex`, and `aria-hidden`, preserves other classes and the committed value, and cancels pending reset work.
 
 ## Lifecycle
 
@@ -291,7 +291,9 @@ Pass an options object to initialize every matched element, or pass a public met
 
 Give each input a meaningful label. Handles use native label associations, `aria-label`, or `aria-labelledby`; range handles receive distinct “start” and “end” names. Unlabeled controls fall back to “Value” or “Range start”/“Range end”.
 
-Handles expose `role="slider"`, orientation, min/max/current values, and formatted `aria-valuetext`. Original `aria-describedby` and `aria-invalid` are copied at initialization. Label and accessibility metadata changes require disposal and reinitialization to be reflected. Disabled state is observed live.
+Handles expose `role="slider"`, orientation, min/max/current values, and formatted `aria-valuetext`. Native `disabled`, `required`, and `readonly` state is observed live, along with changes and removal of `aria-describedby`, `aria-errormessage`, `aria-invalid`, and `aria-required`. An explicit `aria-required` takes precedence over native `required`; removing it restores the native fallback. Label associations and accessible names are captured at initialization; dispose and reinitialize to reflect changes to that metadata. The native input is hidden from assistive technology while Slider is active.
+
+Read-only handles expose `aria-readonly="true"` and remain focusable. Pointer and keyboard editing is blocked, while `setValue()`, native input/change synchronization, and form reset can still update the value. Making an input read-only during a gesture cancels the preview and restores the last committed values without emitting change or `slid`.
 
 | Key | Behavior |
 | --- | --- |
@@ -317,7 +319,7 @@ input.dispatchEvent(new Event('input', { bubbles: true }));
 
 Initialization and setters preserve the input's HTML default value. Calling the associated form's `reset()` or using a reset button restores that default, then asynchronously normalizes and renders it without an additional change event. Canceled resets are ignored.
 
-Form and ancestor-fieldset associations are captured at initialization. Dispose and reinitialize if you move an input to another form or fieldset. Native `disabled` changes on the input or its existing ancestor fieldsets update the handles and cancel active gestures.
+Form and ancestor-fieldset associations are captured at initialization. Dispose and reinitialize if you move an input to another form or fieldset. Native `disabled` changes on the input or its existing ancestor fieldsets update the handles and cancel active gestures. Nested disabled fieldsets and the first-legend exemption follow the native input's effective disabled state.
 
 ## Themes and RTL
 
