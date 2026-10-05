@@ -186,6 +186,7 @@ var Slider = class extends BaseComponent {
 	#tickSize;
 	#tickSnapBounds;
 	#tooltip;
+	#tooltipId;
 	#tooltipTriggers = /* @__PURE__ */ new Set();
 	#values = [];
 	#verticalHeight;
@@ -274,6 +275,7 @@ var Slider = class extends BaseComponent {
 		this.#tooltipTriggers.clear();
 		this.#tooltip?.dispose();
 		this.#tooltip = null;
+		this.#tooltipId = null;
 		$.remove(this.#container);
 		if (this.#hidden) $.addClass(this.node, this.constructor.classes.hide);
 		else $.removeClass(this.node, this.constructor.classes.hide);
@@ -624,12 +626,16 @@ var Slider = class extends BaseComponent {
 		if (!this.node || !this.#tooltip || !this.#values.length) return;
 		if ($.is(this.node, ":disabled")) this.#tooltip.hide();
 		else if (this.options.tooltip === "always" || this.#tooltipTriggers.size) {
+			const current = this.options.range ? null : $.getAttribute(this.#handles[0], "aria-describedby");
 			this.#tooltip.show();
-			const description = $.getAttribute(this.node, "aria-describedby");
-			if (!this.options.range && description) {
-				const current = $.getAttribute(this.#handles[0], "aria-describedby") || "";
-				const ids = [...new Set(`${description} ${current}`.trim().split(/\s+/))];
-				$.setAttribute(this.#handles[0], "aria-describedby", ids.join(" "));
+			if (!this.options.range) {
+				const tooltipId = $.getAttribute(this.#handles[0], "aria-describedby");
+				if (tooltipId !== current) this.#tooltipId = tooltipId;
+				const description = $.getAttribute(this.node, "aria-describedby") || "";
+				if (description || this.#tooltipId) {
+					const ids = [...new Set(`${description} ${this.#tooltipId || ""}`.trim().split(/\s+/))];
+					$.setAttribute(this.#handles[0], "aria-describedby", ids.join(" "));
+				}
 			}
 		} else this.#tooltip.hide();
 	}
@@ -725,6 +731,7 @@ var Slider = class extends BaseComponent {
 				spacing: this.options.range ? (this.#handleSize - this.#sliderSize) / 2 : 0
 			});
 			if (!this.options.range) $.addEvent(this.#handles[0], "hidden.ui.tooltip", (event) => {
+				this.#tooltipId = null;
 				const description = $.getAttribute(this.node, "aria-describedby");
 				if (description !== null) $.setAttribute(event.currentTarget, "aria-describedby", description);
 			});

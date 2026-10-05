@@ -127,6 +127,7 @@ export default class Slider extends BaseComponent {
     #tickSize;
     #tickSnapBounds;
     #tooltip;
+    #tooltipId;
     #tooltipTriggers = new Set();
     #values = [];
     #verticalHeight;
@@ -269,6 +270,7 @@ export default class Slider extends BaseComponent {
 
         this.#tooltip?.dispose();
         this.#tooltip = null;
+        this.#tooltipId = null;
 
         $.remove(this.#container);
 
@@ -817,16 +819,25 @@ export default class Slider extends BaseComponent {
         if ($.is(this.node, ':disabled')) {
             this.#tooltip.hide();
         } else if (this.options.tooltip === 'always' || this.#tooltipTriggers.size) {
+            const current = this.options.range ? null : $.getAttribute(this.#handles[0], 'aria-describedby');
+
             this.#tooltip.show();
 
-            const description = $.getAttribute(this.node, 'aria-describedby');
+            if (!this.options.range) {
+                const tooltipId = $.getAttribute(this.#handles[0], 'aria-describedby');
 
-            if (!this.options.range && description) {
-                // Tooltip replaces this attribute when shown; retain the input's help references.
-                const current = $.getAttribute(this.#handles[0], 'aria-describedby') || '';
-                const ids = [...new Set(`${description} ${current}`.trim().split(/\s+/))];
+                // Native state updates replace this attribute, so retain Tooltip's own ID.
+                if (tooltipId !== current) {
+                    this.#tooltipId = tooltipId;
+                }
 
-                $.setAttribute(this.#handles[0], 'aria-describedby', ids.join(' '));
+                const description = $.getAttribute(this.node, 'aria-describedby') || '';
+
+                if (description || this.#tooltipId) {
+                    const ids = [...new Set(`${description} ${this.#tooltipId || ''}`.trim().split(/\s+/))];
+
+                    $.setAttribute(this.#handles[0], 'aria-describedby', ids.join(' '));
+                }
             }
         } else {
             this.#tooltip.hide();
@@ -955,6 +966,8 @@ export default class Slider extends BaseComponent {
 
             if (!this.options.range) {
                 $.addEvent(this.#handles[0], 'hidden.ui.tooltip', (event) => {
+                    this.#tooltipId = null;
+
                     const description = $.getAttribute(this.node, 'aria-describedby');
 
                     if (description !== null) {

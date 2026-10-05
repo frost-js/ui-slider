@@ -218,6 +218,7 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 		#tickSize;
 		#tickSnapBounds;
 		#tooltip;
+		#tooltipId;
 		#tooltipTriggers = /* @__PURE__ */ new Set();
 		#values = [];
 		#verticalHeight;
@@ -306,6 +307,7 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 			this.#tooltipTriggers.clear();
 			this.#tooltip?.dispose();
 			this.#tooltip = null;
+			this.#tooltipId = null;
 			_fr0st_query.default.remove(this.#container);
 			if (this.#hidden) _fr0st_query.default.addClass(this.node, this.constructor.classes.hide);
 			else _fr0st_query.default.removeClass(this.node, this.constructor.classes.hide);
@@ -656,12 +658,16 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 			if (!this.node || !this.#tooltip || !this.#values.length) return;
 			if (_fr0st_query.default.is(this.node, ":disabled")) this.#tooltip.hide();
 			else if (this.options.tooltip === "always" || this.#tooltipTriggers.size) {
+				const current = this.options.range ? null : _fr0st_query.default.getAttribute(this.#handles[0], "aria-describedby");
 				this.#tooltip.show();
-				const description = _fr0st_query.default.getAttribute(this.node, "aria-describedby");
-				if (!this.options.range && description) {
-					const current = _fr0st_query.default.getAttribute(this.#handles[0], "aria-describedby") || "";
-					const ids = [...new Set(`${description} ${current}`.trim().split(/\s+/))];
-					_fr0st_query.default.setAttribute(this.#handles[0], "aria-describedby", ids.join(" "));
+				if (!this.options.range) {
+					const tooltipId = _fr0st_query.default.getAttribute(this.#handles[0], "aria-describedby");
+					if (tooltipId !== current) this.#tooltipId = tooltipId;
+					const description = _fr0st_query.default.getAttribute(this.node, "aria-describedby") || "";
+					if (description || this.#tooltipId) {
+						const ids = [...new Set(`${description} ${this.#tooltipId || ""}`.trim().split(/\s+/))];
+						_fr0st_query.default.setAttribute(this.#handles[0], "aria-describedby", ids.join(" "));
+					}
 				}
 			} else this.#tooltip.hide();
 		}
@@ -757,6 +763,7 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 					spacing: this.options.range ? (this.#handleSize - this.#sliderSize) / 2 : 0
 				});
 				if (!this.options.range) _fr0st_query.default.addEvent(this.#handles[0], "hidden.ui.tooltip", (event) => {
+					this.#tooltipId = null;
 					const description = _fr0st_query.default.getAttribute(this.node, "aria-describedby");
 					if (description !== null) _fr0st_query.default.setAttribute(event.currentTarget, "aria-describedby", description);
 				});
