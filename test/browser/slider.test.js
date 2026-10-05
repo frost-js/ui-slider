@@ -607,6 +607,113 @@ test.describe('Slider', () => {
         });
     });
 
+    test.describe('touch cancellation', () => {
+        for (const direction of ['ltr', 'rtl']) {
+            test.describe(direction, () => {
+                const fraction = (value) => direction === 'rtl' ? 1 - value : value;
+
+                for (const { name, range, start, move, preview, active } of [
+                    { name: 'single slider at startup', range: false, start: .4, preview: [4], active: 0 },
+                    { name: 'single slider after movement', range: false, start: .3, move: .7, preview: [7], active: 0 },
+                    { name: 'range slider at startup', range: true, start: .2, preview: [2, 8], active: 0 },
+                    { name: 'range slider after movement', range: true, start: .2, move: .5, preview: [5, 8], active: 0 },
+                    { name: 'start handle crossing the end', range: true, start: .2, move: .9, preview: [2, 9], active: 1 },
+                    { name: 'end handle crossing the start', range: true, start: .8, move: .1, preview: [1, 8], active: 0 },
+                ]) {
+                    for (const remainingPointer of [false, true]) {
+                        test(`restores ${name} with ${remainingPointer ? 'another pointer active' : 'no other pointer active'} and allows a fresh gesture`, async ({ page }) => {
+                            await page.evaluate(({ direction, range }) => {
+                                const node = $.findOne('#slider');
+                                $.setAttribute(node, 'dir', direction);
+                                $.setValue(node, range ? '2,8' : '3');
+                                UI.Slider.init(node, { range });
+                                window.events = [];
+                                for (const name of ['slide', 'sliding', 'change', 'slid']) {
+                                    $.addEvent(node, `${name}.ui.slider`, () => window.events.push(name));
+                                }
+                            }, { direction, range });
+                            await page.evaluate(dispatchPointer, { type: 'pointerdown', fraction: fraction(start) });
+                            if (move !== undefined) {
+                                await page.evaluate(dispatchPointer, { type: 'pointermove', fraction: fraction(move) });
+                            }
+
+                            const handles = page.getByRole('slider');
+                            for (const [index, value] of preview.entries()) {
+                                await expect(handles.nth(index)).toHaveAttribute('aria-valuenow', `${value}`);
+                            }
+                            await expect(handles.nth(active)).toBeFocused();
+                            await expect(page.locator('#slider')).toHaveValue(range ? '2,8' : '3');
+                            await expect(page.getByRole('tooltip')).toHaveText(range ? preview.join(' - ') : `${preview[0]}`);
+                            if (remainingPointer) {
+                                await page.evaluate(dispatchPointer, { type: 'pointerdown', id: 2, primary: false });
+                            }
+                            await page.evaluate(dispatchPointer, { type: 'pointercancel', fraction: fraction(.9) });
+
+                            const committed = range ? [2, 8] : [3];
+                            expect(await page.evaluate(() => $('#slider').slider('getValue'))).toEqual(range ? committed : committed[0]);
+                            for (const [index, value] of committed.entries()) {
+                                await expect(handles.nth(index)).toHaveAttribute('aria-valuenow', `${value}`);
+                                expect(await handles.nth(index).evaluate((node) => node.style.left)).toBe(`${direction === 'rtl' ? 100 - value * 10 : value * 10}%`);
+                            }
+                            await expect(page.locator('#slider')).toHaveValue(committed.join(','));
+                            await expect(handles.nth(active)).toBeFocused();
+                            await expect(page.getByRole('tooltip')).toHaveText(range ? '2 - 8' : '3');
+                            await page.locator('#outside').focus();
+                            await expect(page.getByRole('tooltip')).toHaveCount(0);
+
+                            for (const id of [1, 2]) {
+                                await page.evaluate(dispatchPointer, { type: 'pointermove', id, fraction: fraction(.1) });
+                                await page.evaluate(dispatchPointer, { type: 'pointerup', id, fraction: fraction(.1) });
+                            }
+                            await expect(page.locator('#slider')).toHaveValue(committed.join(','));
+                            expect(await page.evaluate(() => $('#slider').slider('getValue'))).toEqual(range ? committed : committed[0]);
+                            const canceledEvents = move === undefined ? ['slide'] : ['slide', 'sliding'];
+                            expect(await page.evaluate(() => window.events)).toEqual(canceledEvents);
+
+                            await page.evaluate(dispatchPointer, { type: 'pointerdown', id: 3, fraction: fraction(.3) });
+                            await page.evaluate(dispatchPointer, { type: 'pointermove', id: 3, fraction: fraction(.6) });
+                            await page.evaluate(dispatchPointer, { type: 'pointerup', id: 3, fraction: fraction(.6) });
+                            await expect(page.locator('#slider')).toHaveValue(range ? '6,8' : '6');
+                            await expect(handles.first()).toHaveAttribute('aria-valuenow', '6');
+                            expect(await page.evaluate(() => window.events)).toEqual([...canceledEvents, 'slide', 'sliding', 'change', 'slid']);
+                        });
+                    }
+                }
+
+                for (const range of [false, true]) {
+                    test(`ignores cancellation of an unrelated pointer during a ${range ? 'range' : 'single'} slider gesture`, async ({ page }) => {
+                        await page.evaluate(({ direction, range }) => {
+                            const node = $.findOne('#slider');
+                            $.setAttribute(node, 'dir', direction);
+                            $.setValue(node, range ? '2,8' : '3');
+                            UI.Slider.init(node, { range, tooltip: false });
+                            window.events = [];
+                            for (const name of ['slide', 'sliding', 'change', 'slid']) {
+                                $.addEvent(node, `${name}.ui.slider`, () => window.events.push(name));
+                            }
+                        }, { direction, range });
+                        await page.evaluate(dispatchPointer, { type: 'pointerdown', fraction: fraction(.3) });
+                        await page.evaluate(dispatchPointer, { type: 'pointermove', fraction: fraction(.5) });
+                        await page.evaluate(dispatchPointer, { type: 'pointerdown', id: 2, primary: false });
+                        await page.evaluate(dispatchPointer, { type: 'pointercancel', id: 2, primary: false, fraction: fraction(.9) });
+                        await page.evaluate(dispatchPointer, { type: 'pointermove', id: 2, fraction: fraction(.9) });
+                        await page.evaluate(dispatchPointer, { type: 'pointerup', id: 2, fraction: fraction(.9) });
+
+                        await expect(page.getByRole('slider').first()).toHaveAttribute('aria-valuenow', '5');
+                        await expect(page.locator('#slider')).toHaveValue(range ? '2,8' : '3');
+                        expect(await page.evaluate(() => window.events)).toEqual(['slide', 'sliding']);
+                        await page.evaluate(dispatchPointer, { type: 'pointermove', fraction: fraction(.6) });
+                        await page.evaluate(dispatchPointer, { type: 'pointerup', fraction: fraction(.7) });
+
+                        await expect(page.locator('#slider')).toHaveValue(range ? '7,8' : '7');
+                        await expect(page.getByRole('slider').first()).toHaveAttribute('aria-valuenow', '7');
+                        expect(await page.evaluate(() => window.events)).toEqual(['slide', 'sliding', 'sliding', 'change', 'slid']);
+                    });
+                }
+            });
+        }
+    });
+
     test.describe('min option', () => {
         test('clamps values below the minimum', async ({ page }) => {
             await page.evaluate(() => UI.Slider.init($.findOne('#slider'), { min: 4 }).setValue(-1));
