@@ -11,70 +11,91 @@ test.describe('Slider styles', () => {
     });
 
     test.describe('layout', () => {
-        for (const orientation of ['horizontal', 'vertical']) {
-            for (const reversed of [false, true]) {
-                for (const direction of ['ltr', 'rtl']) {
-                    test.describe(`${orientation}, reversed=${reversed}, ${direction}`, () => {
-                        const vertical = orientation === 'vertical';
-                        const flipped = reversed !== (!vertical && direction === 'rtl');
-                        const axis = vertical ? 'top' : 'left';
-                        const size = vertical ? 200 : 360;
+        for (const { orientation, reversed, direction, position, highlightPosition, highlightEdge } of [
+            { orientation: 'horizontal', reversed: false, direction: 'ltr', position: '72px', highlightPosition: '72px', highlightEdge: 'left' },
+            { orientation: 'horizontal', reversed: false, direction: 'rtl', position: '288px', highlightPosition: '216px', highlightEdge: 'right' },
+            { orientation: 'horizontal', reversed: true, direction: 'ltr', position: '288px', highlightPosition: '216px', highlightEdge: 'right' },
+            { orientation: 'horizontal', reversed: true, direction: 'rtl', position: '72px', highlightPosition: '72px', highlightEdge: 'left' },
+            { orientation: 'vertical', reversed: false, direction: 'ltr', position: '40px', highlightPosition: '40px', highlightEdge: 'top' },
+            { orientation: 'vertical', reversed: false, direction: 'rtl', position: '40px', highlightPosition: '40px', highlightEdge: 'top' },
+            { orientation: 'vertical', reversed: true, direction: 'ltr', position: '160px', highlightPosition: '120px', highlightEdge: 'bottom' },
+            { orientation: 'vertical', reversed: true, direction: 'rtl', position: '160px', highlightPosition: '120px', highlightEdge: 'bottom' },
+        ]) {
+            test.describe(`${orientation}, reversed=${reversed}, ${direction}`, () => {
+                const vertical = orientation === 'vertical';
+                const axis = vertical ? 'top' : 'left';
+                const dimension = vertical ? 'height' : 'width';
 
-                        test.beforeEach(async ({ page }) => {
-                            await page.evaluate(({ orientation, reversed, direction }) => {
-                                $.setProperty($.findOne('#host'), 'dir', direction);
-                                UI.Slider.init($.findOne('#slider'), {
-                                    orientation, reversed, range: true, ticks: [0, 2, 8, 10],
-                                    tickLabels: ['Zero', 'Two', 'Eight', 'Ten'], tooltip: false,
-                                    rangeHighlights: [{ start: 2, end: 4, style: 'bg-danger' }],
-                                });
-                            }, { orientation, reversed, direction });
+                test.beforeEach(async ({ page }) => {
+                    await page.evaluate(({ orientation, reversed, direction }) => {
+                        $.setProperty($.findOne('#host'), 'dir', direction);
+                        UI.Slider.init($.findOne('#slider'), {
+                            orientation, reversed, range: true, ticks: [0, 2, 8, 10],
+                            tickLabels: ['Zero', 'Two', 'Eight', 'Ten'], tooltip: false,
+                            rangeHighlights: [{ start: 2, end: 4, style: 'bg-danger' }],
                         });
+                    }, { orientation, reversed, direction });
+                });
 
-                        test('aligns handles and ticks on the physical value axis', async ({ page }) => {
-                            const start = page.getByRole('slider', { name: 'Amount start' });
-                            const tick = page.locator('[data-ui-value="2"]');
-                            await expect(start).toHaveCSS(axis, `${size * (flipped ? .8 : .2)}px`);
-                            await expect(tick).toHaveCSS(axis, `${size * (flipped ? .8 : .2)}px`);
-                            const handleBounds = await start.boundingBox();
-                            const tickBounds = await tick.boundingBox();
-                            expect(handleBounds.x + handleBounds.width / 2).toBeCloseTo(tickBounds.x + tickBounds.width / 2, 1);
-                            expect(handleBounds.y + handleBounds.height / 2).toBeCloseTo(tickBounds.y + tickBounds.height / 2, 1);
-                        });
+                test('aligns handles and ticks on the physical value axis', async ({ page }) => {
+                    const start = page.getByRole('slider', { name: 'Amount start' });
+                    const tick = page.locator('[data-ui-value="2"]');
+                    await expect(start).toHaveCSS(axis, position);
+                    await expect(tick).toHaveCSS(axis, position);
 
-                        test('aligns labels with their ticks', async ({ page }) => {
-                            const label = page.locator('small', { hasText: 'Two' });
-                            await expect(label).toHaveCSS(axis, `${size * (flipped ? .8 : .2)}px`);
-                            const labelBounds = await label.boundingBox();
-                            const tickBounds = await page.locator('[data-ui-value="2"]').boundingBox();
-                            expect(vertical ? labelBounds.y + labelBounds.height / 2 : labelBounds.x + labelBounds.width / 2)
-                                .toBeCloseTo(vertical ? tickBounds.y + tickBounds.height / 2 : tickBounds.x + tickBounds.width / 2, 0);
-                        });
+                    const handleBounds = await start.boundingBox();
+                    const tickBounds = await tick.boundingBox();
+                    expect(handleBounds.x + handleBounds.width / 2).toBeCloseTo(tickBounds.x + tickBounds.width / 2, 1);
+                    expect(handleBounds.y + handleBounds.height / 2).toBeCloseTo(tickBounds.y + tickBounds.height / 2, 1);
+                });
 
-                        test('positions highlights on the same axis as ticks', async ({ page }) => {
-                            const highlight = page.locator('.progress.position-relative > .bg-danger');
-                            await expect(highlight).toHaveCSS(axis, `${size * (flipped ? .6 : .2)}px`);
-                            await expect(highlight).toHaveCSS(vertical ? 'height' : 'width', `${size * .2}px`);
-                            const highlightBounds = await highlight.boundingBox();
-                            const tickBounds = await page.locator('[data-ui-value="2"]').boundingBox();
-                            const edge = vertical ?
-                                highlightBounds.y + (flipped ? highlightBounds.height : 0) :
-                                highlightBounds.x + (flipped ? highlightBounds.width : 0);
-                            expect(edge).toBeCloseTo(vertical ?
-                                tickBounds.y + tickBounds.height / 2 :
-                                tickBounds.x + tickBounds.width / 2, 1);
-                        });
+                test('aligns labels with their ticks', async ({ page }) => {
+                    const label = page.locator('small', { hasText: 'Two' });
+                    await expect(label).toHaveCSS(axis, position);
 
-                        test('fills the selected interval between handles', async ({ page }) => {
-                            const selection = page.locator('.progress.position-relative > .bg-primary');
-                            await expect(selection).toHaveCSS(axis, `${size * .2}px`);
-                            await expect(selection).toHaveCSS(vertical ? 'height' : 'width', `${size * .6}px`);
-                            await expect(selection).toHaveCSS('box-shadow', 'none');
-                            await expect(selection).toHaveCSS('transition-duration', '0s');
-                        });
-                    });
-                }
-            }
+                    const labelBounds = await label.boundingBox();
+                    const tickBounds = await page.locator('[data-ui-value="2"]').boundingBox();
+                    expect(vertical ? labelBounds.y + labelBounds.height / 2 : labelBounds.x + labelBounds.width / 2)
+                        .toBeCloseTo(vertical ? tickBounds.y + tickBounds.height / 2 : tickBounds.x + tickBounds.width / 2, 0);
+                });
+
+                test('positions highlights on the same axis as ticks', async ({ page }) => {
+                    const highlight = page.locator('.progress.position-relative > .bg-danger');
+                    await expect(highlight).toHaveCSS(axis, highlightPosition);
+                    await expect(highlight).toHaveCSS(dimension, vertical ? '40px' : '72px');
+
+                    const highlightBounds = await highlight.boundingBox();
+                    const tickBounds = await page.locator('[data-ui-value="2"]').boundingBox();
+                    let edge;
+
+                    switch (highlightEdge) {
+                        case 'left':
+                            edge = highlightBounds.x;
+                            break;
+                        case 'right':
+                            edge = highlightBounds.x + highlightBounds.width;
+                            break;
+                        case 'top':
+                            edge = highlightBounds.y;
+                            break;
+                        case 'bottom':
+                            edge = highlightBounds.y + highlightBounds.height;
+                            break;
+                    }
+
+                    expect(edge).toBeCloseTo(vertical ?
+                        tickBounds.y + tickBounds.height / 2 :
+                        tickBounds.x + tickBounds.width / 2, 1);
+                });
+
+                test('fills the selected interval between handles', async ({ page }) => {
+                    const selection = page.locator('.progress.position-relative > .bg-primary');
+                    await expect(selection).toHaveCSS(axis, vertical ? '40px' : '72px');
+                    await expect(selection).toHaveCSS(dimension, vertical ? '120px' : '216px');
+                    await expect(selection).toHaveCSS('box-shadow', 'none');
+                    await expect(selection).toHaveCSS('transition-duration', '0s');
+                });
+            });
         }
     });
 
@@ -206,6 +227,7 @@ test.describe('Slider styles', () => {
             await expect(page.getByRole('slider')).not.toHaveCSS('box-shadow', 'none');
         });
     });
+
     test.describe('tooltip positioning', () => {
         for (const orientation of ['horizontal', 'vertical']) {
             test(`positions an initially visible tooltip beside its handle (${orientation})`, async ({ page }) => {

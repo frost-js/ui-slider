@@ -105,49 +105,12 @@ test.describe('Slider forms', () => {
                 UI.Slider.init(node).setValue(8);
             });
 
-            expect(await page.locator('#slider').evaluate((node) => node.validity.patternMismatch)).toBe(true);
+            await expect(page.locator('#slider')).toHaveJSProperty('validity.patternMismatch', true);
             await page.getByRole('button', { name: 'Submit' }).click();
             await expect(page.getByRole('slider')).toBeFocused();
             expect(await page.evaluate(() => window.submits)).toBe(0);
             await page.evaluate(() => $('#slider').slider('setValue', 4));
             expect(await page.locator('#slider').evaluate((node) => node.checkValidity())).toBe(true);
-        });
-    });
-
-    test.describe('disabled state', () => {
-        for (const range of [false, true]) {
-            test(`tracks native and fieldset changes (range=${range})`, async ({ page }) => {
-                await page.evaluate((range) => {
-                    $.setProperty($.findOne('fieldset'), 'disabled', true);
-                    UI.Slider.init($.findOne('#slider'), { range });
-                }, range);
-
-                const handles = page.getByRole('slider');
-                await expect(handles).toHaveCount(range ? 2 : 1);
-                for (const handle of await handles.all()) {
-                    await expect(handle).toBeDisabled();
-                }
-                await page.evaluate(() => $.setProperty($.findOne('fieldset'), 'disabled', false));
-                for (const handle of await handles.all()) {
-                    await expect(handle).toBeEnabled();
-                }
-                await page.evaluate(() => $.setProperty($.findOne('#slider'), 'disabled', true));
-                for (const handle of await handles.all()) {
-                    await expect(handle).toBeDisabled();
-                }
-            });
-        }
-
-        test('cancels an active drag when its fieldset is disabled', async ({ page }) => {
-            await page.evaluate(() => UI.Slider.init($.findOne('#slider')));
-            await page.evaluate(dispatchDragEvent, { type: 'touchstart', fraction: .8 });
-            await page.evaluate(() => $.setProperty($.findOne('fieldset'), 'disabled', true));
-
-            await expect(page.getByRole('slider')).toBeDisabled();
-            await expect(page.getByRole('slider')).toHaveAttribute('aria-valuenow', '3');
-            await page.evaluate(dispatchDragEvent, { type: 'touchend', fraction: .9 });
-            await expect(page.locator('#slider')).toHaveValue('3');
-            expect(await page.evaluate(() => window.changes)).toBe(0);
         });
     });
 

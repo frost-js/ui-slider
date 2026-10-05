@@ -18,6 +18,41 @@ test.describe('Slider native state synchronization', () => {
                 }, range);
             });
 
+            test('inherits disabled fieldsets and observes native and fieldset changes', async ({ page }) => {
+                await page.evaluate((range) => {
+                    $.setProperty($.findOne('fieldset'), 'disabled', true);
+                    UI.Slider.init($.findOne('#slider'), { range });
+                }, range);
+
+                const handles = page.getByRole('slider');
+                await expect(handles).toHaveCount(range ? 2 : 1);
+                for (const handle of await handles.all()) {
+                    await expect(handle).toBeDisabled();
+                }
+                await page.evaluate(() => $.setProperty($.findOne('fieldset'), 'disabled', false));
+                for (const handle of await handles.all()) {
+                    await expect(handle).toBeEnabled();
+                }
+                await page.evaluate(() => $.setProperty($.findOne('#slider'), 'disabled', true));
+                for (const handle of await handles.all()) {
+                    await expect(handle).toBeDisabled();
+                }
+            });
+
+            if (!range) {
+                test('cancels a drag at startup when its fieldset is disabled', async ({ page }) => {
+                    await page.evaluate(() => UI.Slider.init($.findOne('#slider')));
+                    await page.evaluate(dispatchDragEvent, { type: 'touchstart', fraction: .8 });
+                    await page.evaluate(() => $.setProperty($.findOne('fieldset'), 'disabled', true));
+
+                    await expect(page.getByRole('slider')).toBeDisabled();
+                    await expect(page.getByRole('slider')).toHaveAttribute('aria-valuenow', '3');
+                    await page.evaluate(dispatchDragEvent, { type: 'touchend', fraction: .9 });
+                    await expect(page.locator('#slider')).toHaveValue('3');
+                    expect(await page.evaluate(() => window.stateEvents)).toEqual([]);
+                });
+            }
+
             for (const { property, attribute } of [
                 { property: 'disabled', attribute: 'aria-disabled' },
                 { property: 'required', attribute: 'aria-required' },
@@ -217,15 +252,16 @@ test.describe('Slider native state synchronization', () => {
                     await expect(handle).toHaveAttribute('aria-required', 'true');
                     await expect(handle).toHaveAttribute('aria-readonly', 'true');
                 }
-                expect(await oldHandles.evaluate((handles) => handles.map((handle) => ({
-                    connected: $.getProperty(handle, 'isConnected'),
-                    disabled: $.getProperty(handle, 'disabled'),
-                    readOnly: $.getAttribute(handle, 'aria-readonly'),
-                    required: $.getAttribute(handle, 'aria-required'),
-                    invalid: $.getAttribute(handle, 'aria-invalid'),
-                })))).toEqual(Array.from({ length: range ? 2 : 1 }, () => ({
-                    connected: false, disabled: false, readOnly: 'false', required: 'false', invalid: null,
-                })));
+                // The old handles are detached, so inspect the retained references directly.
+                expect(await oldHandles.evaluate((handles) => handles.length)).toBe(range ? 2 : 1);
+                for (let index = 0; index < (range ? 2 : 1); index++) {
+                    expect(await oldHandles.evaluate((handles, index) => $.getProperty(handles[index], 'isConnected'), index)).toBe(false);
+                    expect(await oldHandles.evaluate((handles, index) => $.getProperty(handles[index], 'disabled'), index)).toBe(false);
+                    expect(await oldHandles.evaluate((handles, index) => $.getAttribute(handles[index], 'aria-readonly'), index)).toBe('false');
+                    expect(await oldHandles.evaluate((handles, index) => $.getAttribute(handles[index], 'aria-required'), index)).toBe('false');
+                    expect(await oldHandles.evaluate((handles, index) => $.getAttribute(handles[index], 'aria-invalid'), index)).toBeNull();
+                }
+
                 expect(await page.evaluate(() => window.stateEvents)).toEqual([]);
             });
         });
