@@ -664,7 +664,7 @@ test.describe('Slider', () => {
                             expect(await page.evaluate(() => $('#slider').slider('getValue'))).toEqual(range ? committed : committed[0]);
                             for (const [index, value] of committed.entries()) {
                                 await expect(handles.nth(index)).toHaveAttribute('aria-valuenow', `${value}`);
-                                expect(await handles.nth(index).evaluate((node) => node.style.left)).toBe(`${direction === 'rtl' ? 100 - value * 10 : value * 10}%`);
+                                expect(await handles.nth(index).evaluate((node) => $.getStyle(node, 'left'))).toBe(`${direction === 'rtl' ? 100 - value * 10 : value * 10}%`);
                             }
                             await expect(page.locator('#slider')).toHaveValue(committed.join(','));
                             await expect(handles.nth(active)).toBeFocused();

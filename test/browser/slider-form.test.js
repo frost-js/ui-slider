@@ -82,7 +82,7 @@ test.describe('Slider forms', () => {
         test('preserves native validation and redirects invalid focus', async ({ page }) => {
             await page.evaluate(() => {
                 const node = $.findOne('#slider');
-                node.pattern = '[0-5]';
+                $.setProperty(node, 'pattern', '[0-5]');
                 UI.Slider.init(node).setValue(8);
             });
 

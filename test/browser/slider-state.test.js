@@ -157,7 +157,7 @@ test.describe('Slider native state synchronization', () => {
                     await page.evaluate((range) => UI.Slider.init($.findOne('#slider'), { range, tooltip: false }), range);
                     await page.evaluate(dispatchDragEvent, { type: 'touchstart', fraction: .3 });
                     await page.evaluate((phase) => {
-                        const rect = $.findOne('#host .progress.position-relative').getBoundingClientRect();
+                        const rect = $.rect('#host .progress.position-relative', { offset: true });
                         $.setProperty('#slider', 'readOnly', true);
                         for (const type of [phase, 'touchend']) {
                             const touch = {
@@ -218,11 +218,11 @@ test.describe('Slider native state synchronization', () => {
                     await expect(handle).toHaveAttribute('aria-readonly', 'true');
                 }
                 expect(await oldHandles.evaluate((handles) => handles.map((handle) => ({
-                    connected: handle.isConnected,
-                    disabled: handle.disabled,
-                    readOnly: handle.getAttribute('aria-readonly'),
-                    required: handle.getAttribute('aria-required'),
-                    invalid: handle.getAttribute('aria-invalid'),
+                    connected: $.getProperty(handle, 'isConnected'),
+                    disabled: $.getProperty(handle, 'disabled'),
+                    readOnly: $.getAttribute(handle, 'aria-readonly'),
+                    required: $.getAttribute(handle, 'aria-required'),
+                    invalid: $.getAttribute(handle, 'aria-invalid'),
                 })))).toEqual(Array.from({ length: range ? 2 : 1 }, () => ({
                     connected: false, disabled: false, readOnly: 'false', required: 'false', invalid: null,
                 })));
