@@ -181,6 +181,7 @@ var Slider = class extends BaseComponent {
 		disabledOpacity: .5
 	};
 	#active = 0;
+	#ariaHidden;
 	#barHigh;
 	#barLow;
 	#barSelection;
@@ -217,13 +218,16 @@ var Slider = class extends BaseComponent {
 		super(node, settings);
 		this.#hidden = $.hasClass(node, this.constructor.classes.hide);
 		this.#tabIndex = $.getAttribute(node, "tabindex");
+		this.#ariaHidden = $.getAttribute(node, "aria-hidden");
 		this.#label = Array.from(node.labels || [], (label) => $.getText(label).trim()).join(" ");
 		try {
+			const focused = $.is(node, ":focus");
 			this.#normalizeTicks();
 			this.#render();
 			this.#events();
 			this.#readInput();
 			if (this.node) this.#refreshDisabled();
+			if (this.node && focused) $.focus(this.#handles[0]);
 		} catch (error) {
 			this.dispose();
 			throw error;
@@ -252,6 +256,8 @@ var Slider = class extends BaseComponent {
 		$.remove(this.#container);
 		if (this.#hidden) $.addClass(this.node, this.constructor.classes.hide);
 		else $.removeClass(this.node, this.constructor.classes.hide);
+		if (this.#ariaHidden === null) $.removeAttribute(this.node, "aria-hidden");
+		else $.setAttribute(this.node, { "aria-hidden": this.#ariaHidden });
 		if (this.#tabIndex === null) $.removeAttribute(this.node, "tabindex");
 		else $.setAttribute(this.node, { tabindex: this.#tabIndex });
 		this.#barHigh = null;
@@ -698,7 +704,10 @@ var Slider = class extends BaseComponent {
 			spacing: this.options.range ? (this.options.handleSize - this.options.sliderSize) / 2 : 0
 		});
 		$.addClass(this.node, this.constructor.classes.hide);
-		$.setAttribute(this.node, { "tabindex": "-1" });
+		$.setAttribute(this.node, {
+			"tabindex": "-1",
+			"aria-hidden": true
+		});
 	}
 	/**
 	* Creates a UI progress interval without inherited progress animation or glow.

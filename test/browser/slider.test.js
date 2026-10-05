@@ -77,25 +77,94 @@ test.describe('Slider', () => {
             expect(await page.evaluate(() => $.hasData('#outside', 'slider'))).toBe(false);
         });
 
-        test('restores the input if a formatter fails during initialization', async ({ page }) => {
-            expect(await page.evaluate(() => {
-                try {
-                    UI.Slider.init($.findOne('#slider'), {
-                        valueText: () => {
-                            throw new Error('Invalid formatter');
-                        },
-                    });
-                } catch (error) {
-                    return error.message;
-                }
-            })).toBe('Invalid formatter');
-            await expect(page.getByRole('slider')).toHaveCount(0);
-            await expect(page.locator('#slider')).not.toHaveClass(/visually-hidden/);
-            expect(await page.evaluate(() => $.hasData('#slider', 'slider'))).toBe(false);
-        });
+        for (const range of [false, true]) {
+            for (const focused of [false, true]) {
+                test(`exposes only generated controls for a ${range ? 'range' : 'single'} slider initialized ${focused ? 'focused' : 'unfocused'}`, async ({ page }) => {
+                    await page.evaluate(({ range, focused }) => {
+                        $.setHtml(document.body,
+                            '<button id="outside">Outside</button>' +
+                            '<label for="slider">Amount</label>' +
+                            `<input id="slider" value="${range ? '2,8' : '3'}">`,
+                        );
+                        const node = $.findOne('#slider');
+                        (focused ? node : $.findOne('#outside')).focus();
+                        UI.Slider.init(node, { range, tooltip: false });
+                    }, { range, focused });
+
+                    const handles = page.getByRole('slider');
+                    await expect(handles).toHaveCount(range ? 2 : 1);
+                    await expect(handles.first()).toHaveAccessibleName(range ? 'Amount start' : 'Amount');
+                    await expect(handles.first()).toHaveAttribute('aria-valuenow', range ? '2' : '3');
+                    if (range) {
+                        await expect(handles.last()).toHaveAccessibleName('Amount end');
+                        await expect(handles.last()).toHaveAttribute('aria-valuenow', '8');
+                    }
+                    await expect(page.locator('#slider')).toHaveAttribute('aria-hidden', 'true');
+                    await expect(page.getByRole('textbox')).toHaveCount(0);
+                    await expect(focused ? handles.first() : page.locator('#outside')).toBeFocused();
+
+                    await page.locator('label').click();
+                    await expect(handles.first()).toBeFocused();
+                    await handles.first().press('ArrowRight');
+                    await expect(page.locator('#slider')).toHaveValue(range ? '3,8' : '4');
+                    await expect(page.getByRole('textbox')).toHaveCount(0);
+
+                    await page.evaluate(() => $.getData('#slider', 'slider').dispose());
+                    await expect(handles).toHaveCount(0);
+                    await expect(page.getByRole('textbox', { name: 'Amount' })).toHaveValue(range ? '3,8' : '4');
+                });
+            }
+        }
+
+        for (const ariaHidden of [null, 'false', 'true']) {
+            test(`restores the input with original aria-hidden ${ariaHidden ?? 'absence'} if a formatter fails during initialization`, async ({ page }) => {
+                expect(await page.evaluate((ariaHidden) => {
+                    const node = $.findOne('#slider');
+                    if (ariaHidden !== null) {
+                        $.setAttribute(node, 'aria-hidden', ariaHidden);
+                    }
+                    $.setAttribute(node, 'tabindex', '4');
+                    try {
+                        UI.Slider.init(node, {
+                            valueText: () => {
+                                throw new Error('Invalid formatter');
+                            },
+                        });
+                    } catch (error) {
+                        return { message: error.message, ariaHidden: $.getAttribute(node, 'aria-hidden') };
+                    }
+                }, ariaHidden)).toEqual({ message: 'Invalid formatter', ariaHidden });
+                await expect(page.getByRole('slider')).toHaveCount(0);
+                await expect(page.locator('#slider')).not.toHaveClass(/visually-hidden/);
+                await expect(page.locator('#slider')).toHaveAttribute('tabindex', '4');
+                expect(await page.evaluate(() => $.hasData('#slider', 'slider'))).toBe(false);
+            });
+        }
     });
 
     test.describe('#dispose', () => {
+        for (const ariaHidden of [null, 'false', 'true']) {
+            test(`restores original aria-hidden ${ariaHidden ?? 'absence'} after disposal`, async ({ page }) => {
+                await page.evaluate((ariaHidden) => {
+                    const node = $.findOne('#slider');
+                    if (ariaHidden !== null) {
+                        $.setAttribute(node, 'aria-hidden', ariaHidden);
+                    }
+                    UI.Slider.init(node, { tooltip: false });
+                }, ariaHidden);
+
+                const input = page.locator('#slider');
+                await expect(input).toHaveAttribute('aria-hidden', 'true');
+                await page.evaluate(() => $.getData('#slider', 'slider').dispose());
+
+                if (ariaHidden === null) {
+                    await expect(input).not.toHaveAttribute('aria-hidden');
+                } else {
+                    await expect(input).toHaveAttribute('aria-hidden', ariaHidden);
+                }
+            });
+        }
+
         for (const { name, dispose } of [
             { name: 'class', dispose: (instance) => instance.dispose() },
             { name: 'QuerySet', dispose: () => $('#slider').slider('dispose') },

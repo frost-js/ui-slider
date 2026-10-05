@@ -87,6 +87,7 @@ export default class Slider extends BaseComponent {
     };
 
     #active = 0;
+    #ariaHidden;
     #barHigh;
     #barLow;
     #barSelection;
@@ -123,15 +124,20 @@ export default class Slider extends BaseComponent {
 
         this.#hidden = $.hasClass(node, this.constructor.classes.hide);
         this.#tabIndex = $.getAttribute(node, 'tabindex');
+        this.#ariaHidden = $.getAttribute(node, 'aria-hidden');
         this.#label = Array.from(node.labels || [], (label) => $.getText(label).trim()).join(' ');
 
         try {
+            const focused = $.is(node, ':focus');
             this.#normalizeTicks();
             this.#render();
             this.#events();
             this.#readInput();
             if (this.node) {
                 this.#refreshDisabled();
+            }
+            if (this.node && focused) {
+                $.focus(this.#handles[0]);
             }
         } catch (error) {
             this.dispose();
@@ -173,6 +179,11 @@ export default class Slider extends BaseComponent {
             $.addClass(this.node, this.constructor.classes.hide);
         } else {
             $.removeClass(this.node, this.constructor.classes.hide);
+        }
+        if (this.#ariaHidden === null) {
+            $.removeAttribute(this.node, 'aria-hidden');
+        } else {
+            $.setAttribute(this.node, { 'aria-hidden': this.#ariaHidden });
         }
         if (this.#tabIndex === null) {
             $.removeAttribute(this.node, 'tabindex');
@@ -719,7 +730,7 @@ export default class Slider extends BaseComponent {
             });
         }
         $.addClass(this.node, this.constructor.classes.hide);
-        $.setAttribute(this.node, { 'tabindex': '-1' });
+        $.setAttribute(this.node, { 'tabindex': '-1', 'aria-hidden': true });
     }
 
     /**

@@ -213,6 +213,7 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 			disabledOpacity: .5
 		};
 		#active = 0;
+		#ariaHidden;
 		#barHigh;
 		#barLow;
 		#barSelection;
@@ -249,13 +250,16 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 			super(node, settings);
 			this.#hidden = _fr0st_query.default.hasClass(node, this.constructor.classes.hide);
 			this.#tabIndex = _fr0st_query.default.getAttribute(node, "tabindex");
+			this.#ariaHidden = _fr0st_query.default.getAttribute(node, "aria-hidden");
 			this.#label = Array.from(node.labels || [], (label) => _fr0st_query.default.getText(label).trim()).join(" ");
 			try {
+				const focused = _fr0st_query.default.is(node, ":focus");
 				this.#normalizeTicks();
 				this.#render();
 				this.#events();
 				this.#readInput();
 				if (this.node) this.#refreshDisabled();
+				if (this.node && focused) _fr0st_query.default.focus(this.#handles[0]);
 			} catch (error) {
 				this.dispose();
 				throw error;
@@ -284,6 +288,8 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 			_fr0st_query.default.remove(this.#container);
 			if (this.#hidden) _fr0st_query.default.addClass(this.node, this.constructor.classes.hide);
 			else _fr0st_query.default.removeClass(this.node, this.constructor.classes.hide);
+			if (this.#ariaHidden === null) _fr0st_query.default.removeAttribute(this.node, "aria-hidden");
+			else _fr0st_query.default.setAttribute(this.node, { "aria-hidden": this.#ariaHidden });
 			if (this.#tabIndex === null) _fr0st_query.default.removeAttribute(this.node, "tabindex");
 			else _fr0st_query.default.setAttribute(this.node, { tabindex: this.#tabIndex });
 			this.#barHigh = null;
@@ -730,7 +736,10 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 				spacing: this.options.range ? (this.options.handleSize - this.options.sliderSize) / 2 : 0
 			});
 			_fr0st_query.default.addClass(this.node, this.constructor.classes.hide);
-			_fr0st_query.default.setAttribute(this.node, { "tabindex": "-1" });
+			_fr0st_query.default.setAttribute(this.node, {
+				"tabindex": "-1",
+				"aria-hidden": true
+			});
 		}
 		/**
 		* Creates a UI progress interval without inherited progress animation or glow.
