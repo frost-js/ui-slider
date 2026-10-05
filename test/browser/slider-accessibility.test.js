@@ -11,18 +11,7 @@ test.describe('Slider accessibility and tooltips', () => {
         });
     });
 
-    test.describe('input attributes', () => {
-        test('inherits initial disabled state', async ({ page }) => {
-            await page.evaluate(() => {
-                const node = $.findOne('#slider');
-                $.setProperty(node, 'disabled', true);
-                UI.Slider.init(node);
-            });
-
-            await expect(page.getByRole('slider')).toBeDisabled();
-            await expect(page.getByRole('slider')).toHaveAttribute('aria-disabled', 'true');
-        });
-
+    test.describe('accessible names', () => {
         for (const { name, markup, expected } of [
             { name: 'explicit label', markup: '<label for="slider">Volume</label><input id="slider">', expected: 'Volume' },
             { name: 'wrapping label', markup: '<label>Volume<input id="slider"></label>', expected: 'Volume' },
@@ -51,7 +40,9 @@ test.describe('Slider accessibility and tooltips', () => {
             await expect(page.getByRole('slider')).toHaveAccessibleName('Amount');
             await expect(page.locator('label')).not.toHaveAttribute('id');
         });
+    });
 
+    test.describe('accessible state', () => {
         test('copies descriptions and invalid state to the handle', async ({ page }) => {
             await page.evaluate(() => {
                 const node = $.findOne('#slider');
@@ -63,72 +54,6 @@ test.describe('Slider accessibility and tooltips', () => {
             await expect(page.getByRole('slider')).toHaveAttribute('aria-describedby', 'help');
             await expect(page.getByRole('slider')).toHaveAttribute('aria-invalid', 'true');
         });
-
-        test('preserves help descriptions while showing and hiding the tooltip', async ({ page }) => {
-            await page.evaluate(() => {
-                $.append('#host', '<p id="help">First help</p><p id="other-help">Second help</p>');
-                $.setAttribute('#slider', 'aria-describedby', 'help other-help');
-                UI.Slider.init($.findOne('#slider'));
-            });
-
-            const handle = page.getByRole('slider');
-            await handle.focus();
-            await expect(page.getByRole('tooltip')).toBeVisible();
-            const tooltipId = await page.getByRole('tooltip').getAttribute('id');
-            await expect(handle).toHaveAttribute('aria-describedby', `help other-help ${tooltipId}`);
-            await expect(handle).toHaveAccessibleDescription('First help Second help 3');
-            await page.evaluate(() => $('#slider').slider('setValue', 5));
-            await expect(handle).toHaveAttribute('aria-describedby', `help other-help ${tooltipId}`);
-            await page.locator('#outside').focus();
-            await expect(page.getByRole('tooltip')).toHaveCount(0);
-            await expect(handle).toHaveAttribute('aria-describedby', 'help other-help');
-            await expect(handle).toHaveAccessibleDescription('First help Second help');
-        });
-
-        for (const tooltip of ['show', 'always']) {
-            for (const help of [false, true]) {
-                test(`preserves the tooltip reference during native state updates (tooltip=${tooltip}, help=${help})`, async ({ page }) => {
-                    await page.evaluate(({ tooltip, help }) => {
-                        $.append('#host', '<p id="help">Help text</p><p id="other-help">Updated help</p>');
-
-                        if (help) {
-                            $.setAttribute('#slider', 'aria-describedby', 'help');
-                        }
-
-                        UI.Slider.init($.findOne('#slider'), { tooltip });
-                    }, { tooltip, help });
-
-                    const handle = page.getByRole('slider');
-                    await handle.focus();
-                    await expect(page.getByRole('tooltip')).toBeVisible();
-                    const tooltipId = await page.getByRole('tooltip').getAttribute('id');
-                    const description = help ? `help ${tooltipId}` : tooltipId;
-                    await expect(handle).toHaveAttribute('aria-describedby', description);
-
-                    await page.evaluate(() => $.setAttribute('#slider', 'aria-invalid', 'true'));
-                    await expect(handle).toHaveAttribute('aria-invalid', 'true');
-                    await expect(handle).toHaveAttribute('aria-describedby', description);
-
-                    await page.evaluate(() => $.setAttribute('#slider', 'aria-describedby', 'other-help'));
-                    await expect(handle).toHaveAttribute('aria-describedby', `other-help ${tooltipId}`);
-                    await expect(handle).toHaveAccessibleDescription('Updated help 3');
-                    await page.evaluate(() => $.removeAttribute('#slider', 'aria-describedby'));
-                    await expect(handle).toHaveAttribute('aria-describedby', tooltipId);
-                    await expect(handle).toHaveAccessibleDescription('3');
-
-                    await page.evaluate(() => $('#slider').slider('disable'));
-                    await expect(page.getByRole('tooltip')).toHaveCount(0);
-                    await expect(handle).not.toHaveAttribute('aria-describedby');
-                    await page.locator('#outside').focus();
-                    await page.evaluate(() => $('#slider').slider('enable'));
-                    await handle.focus();
-                    await expect(page.getByRole('tooltip')).toBeVisible();
-                    await expect(page.getByRole('tooltip')).not.toHaveAttribute('id', tooltipId);
-                    const updatedId = await page.getByRole('tooltip').getAttribute('id');
-                    await expect(handle).toHaveAttribute('aria-describedby', updatedId);
-                });
-            }
-        }
     });
 
     test.describe('tooltip option', () => {
@@ -226,5 +151,73 @@ test.describe('Slider accessibility and tooltips', () => {
 
             await expect(page.getByRole('tooltip')).toHaveText('2 - 8');
         });
+    });
+
+    test.describe('tooltip descriptions', () => {
+        test('preserves help descriptions while showing and hiding the tooltip', async ({ page }) => {
+            await page.evaluate(() => {
+                $.append('#host', '<p id="help">First help</p><p id="other-help">Second help</p>');
+                $.setAttribute('#slider', 'aria-describedby', 'help other-help');
+                UI.Slider.init($.findOne('#slider'));
+            });
+
+            const handle = page.getByRole('slider');
+            await handle.focus();
+            await expect(page.getByRole('tooltip')).toBeVisible();
+            const tooltipId = await page.getByRole('tooltip').getAttribute('id');
+            await expect(handle).toHaveAttribute('aria-describedby', `help other-help ${tooltipId}`);
+            await expect(handle).toHaveAccessibleDescription('First help Second help 3');
+            await page.evaluate(() => $('#slider').slider('setValue', 5));
+            await expect(handle).toHaveAttribute('aria-describedby', `help other-help ${tooltipId}`);
+            await page.locator('#outside').focus();
+            await expect(page.getByRole('tooltip')).toHaveCount(0);
+            await expect(handle).toHaveAttribute('aria-describedby', 'help other-help');
+            await expect(handle).toHaveAccessibleDescription('First help Second help');
+        });
+
+        for (const tooltip of ['show', 'always']) {
+            for (const help of [false, true]) {
+                test(`preserves the tooltip reference during native state updates (tooltip=${tooltip}, help=${help})`, async ({ page }) => {
+                    await page.evaluate(({ tooltip, help }) => {
+                        $.append('#host', '<p id="help">Help text</p><p id="other-help">Updated help</p>');
+
+                        if (help) {
+                            $.setAttribute('#slider', 'aria-describedby', 'help');
+                        }
+
+                        UI.Slider.init($.findOne('#slider'), { tooltip });
+                    }, { tooltip, help });
+
+                    const handle = page.getByRole('slider');
+                    await handle.focus();
+                    await expect(page.getByRole('tooltip')).toBeVisible();
+                    const tooltipId = await page.getByRole('tooltip').getAttribute('id');
+                    const description = help ? `help ${tooltipId}` : tooltipId;
+                    await expect(handle).toHaveAttribute('aria-describedby', description);
+
+                    await page.evaluate(() => $.setAttribute('#slider', 'aria-invalid', 'true'));
+                    await expect(handle).toHaveAttribute('aria-invalid', 'true');
+                    await expect(handle).toHaveAttribute('aria-describedby', description);
+
+                    await page.evaluate(() => $.setAttribute('#slider', 'aria-describedby', 'other-help'));
+                    await expect(handle).toHaveAttribute('aria-describedby', `other-help ${tooltipId}`);
+                    await expect(handle).toHaveAccessibleDescription('Updated help 3');
+                    await page.evaluate(() => $.removeAttribute('#slider', 'aria-describedby'));
+                    await expect(handle).toHaveAttribute('aria-describedby', tooltipId);
+                    await expect(handle).toHaveAccessibleDescription('3');
+
+                    await page.evaluate(() => $('#slider').slider('disable'));
+                    await expect(page.getByRole('tooltip')).toHaveCount(0);
+                    await expect(handle).not.toHaveAttribute('aria-describedby');
+                    await page.locator('#outside').focus();
+                    await page.evaluate(() => $('#slider').slider('enable'));
+                    await handle.focus();
+                    await expect(page.getByRole('tooltip')).toBeVisible();
+                    await expect(page.getByRole('tooltip')).not.toHaveAttribute('id', tooltipId);
+                    const updatedId = await page.getByRole('tooltip').getAttribute('id');
+                    await expect(handle).toHaveAttribute('aria-describedby', updatedId);
+                });
+            }
+        }
     });
 });

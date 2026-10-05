@@ -100,6 +100,20 @@ test.describe('Slider values', () => {
     });
 
     test.describe('step option', () => {
+        test('rounds decimal steps relative to the minimum', async ({ page }) => {
+            await page.evaluate(() => UI.Slider.init($.findOne('#slider'), { min: .1, step: .2 }).setValue(.24));
+
+            await expect(page.locator('#slider')).toHaveValue('0.3');
+            await page.getByRole('slider').press('ArrowRight');
+            await expect(page.locator('#slider')).toHaveValue('0.5');
+        });
+
+        test('clamps the result after rounding', async ({ page }) => {
+            await page.evaluate(() => UI.Slider.init($.findOne('#slider'), { step: 6 }).setValue(9.5));
+
+            await expect(page.locator('#slider')).toHaveValue('10');
+        });
+
         for (const { min, max, step, expected } of [
             { min: 0, max: 10, step: 3, expected: '9' },
             { min: .1, max: .4, step: .1, expected: '0.3' },
@@ -125,20 +139,6 @@ test.describe('Slider values', () => {
             await expect(page.getByRole('slider')).toHaveAttribute('aria-valuenow', '1');
             await page.getByRole('slider').press('ArrowRight');
             await expect(page.locator('#slider')).toHaveValue('1');
-        });
-
-        test('rounds decimal steps relative to the minimum', async ({ page }) => {
-            await page.evaluate(() => UI.Slider.init($.findOne('#slider'), { min: .1, step: .2 }).setValue(.24));
-
-            await expect(page.locator('#slider')).toHaveValue('0.3');
-            await page.getByRole('slider').press('ArrowRight');
-            await expect(page.locator('#slider')).toHaveValue('0.5');
-        });
-
-        test('clamps the result after rounding', async ({ page }) => {
-            await page.evaluate(() => UI.Slider.init($.findOne('#slider'), { step: 6 }).setValue(9.5));
-
-            await expect(page.locator('#slider')).toHaveValue('10');
         });
 
         for (const step of [0, -1, 'invalid', Infinity]) {

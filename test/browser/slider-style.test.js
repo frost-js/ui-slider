@@ -10,6 +10,49 @@ test.describe('Slider styles', () => {
         });
     });
 
+    test.describe('sizing', () => {
+        for (const orientation of ['horizontal', 'vertical']) {
+            test(`applies track and handle dimensions (${orientation})`, async ({ page }) => {
+                await page.evaluate((orientation) => UI.Slider.init($.findOne('#slider'), {
+                    orientation, sliderSize: 12, handleSize: 24, handleSizeRatio: .5,
+                    verticalHeight: 300, tooltip: false,
+                }), orientation);
+
+                const vertical = orientation === 'vertical';
+                await expect(page.locator('.progress.position-relative')).toHaveCSS('width', vertical ? '12px' : '360px');
+                await expect(page.locator('.progress.position-relative')).toHaveCSS('height', vertical ? '300px' : '12px');
+                await expect(page.getByRole('slider')).toHaveCSS('width', vertical ? '24px' : '12px');
+                await expect(page.getByRole('slider')).toHaveCSS('height', vertical ? '12px' : '24px');
+            });
+        }
+
+        test('applies tick dimensions', async ({ page }) => {
+            await page.evaluate(() => UI.Slider.init($.findOne('#slider'), { ticks: [5], tickSize: 40 }));
+
+            await expect(page.locator('[data-ui-value="5"]')).toHaveCSS('width', '40px');
+            await expect(page.locator('[data-ui-value="5"]')).toHaveCSS('height', '40px');
+        });
+
+        for (const orientation of ['horizontal', 'vertical']) {
+            test(`uses default dimensions for invalid sizes (${orientation})`, async ({ page }) => {
+                await page.evaluate((orientation) => UI.Slider.init($.findOne('#slider'), {
+                    orientation, ticks: [5], tooltip: false,
+                    sliderSize: 0, handleSize: -1, handleSizeRatio: 'invalid',
+                    verticalHeight: Infinity, tickSize: null,
+                }), orientation);
+
+                const vertical = orientation === 'vertical';
+                await expect(page.locator('.progress.position-relative')).toHaveCSS('width', vertical ? '10px' : '360px');
+                await expect(page.locator('.progress.position-relative')).toHaveCSS('height', vertical ? '200px' : '10px');
+                await expect(page.getByRole('slider')).toHaveCSS('width', vertical ? '20px' : '15px');
+                await expect(page.getByRole('slider')).toHaveCSS('height', vertical ? '15px' : '20px');
+                await expect(page.locator('[data-ui-value="5"]')).toHaveCSS('width', '30px');
+                await page.getByRole('slider').press('End');
+                await expect(page.locator('#slider')).toHaveValue('10');
+            });
+        }
+    });
+
     test.describe('layout', () => {
         for (const { orientation, reversed, direction, position, highlightPosition, highlightEdge } of [
             { orientation: 'horizontal', reversed: false, direction: 'ltr', position: '72px', highlightPosition: '72px', highlightEdge: 'left' },
@@ -86,49 +129,6 @@ test.describe('Slider styles', () => {
                     await expect(selection).toHaveCSS('box-shadow', 'none');
                     await expect(selection).toHaveCSS('transition-duration', '0s');
                 });
-            });
-        }
-    });
-
-    test.describe('sizing', () => {
-        for (const orientation of ['horizontal', 'vertical']) {
-            test(`applies track and handle dimensions (${orientation})`, async ({ page }) => {
-                await page.evaluate((orientation) => UI.Slider.init($.findOne('#slider'), {
-                    orientation, sliderSize: 12, handleSize: 24, handleSizeRatio: .5,
-                    verticalHeight: 300, tooltip: false,
-                }), orientation);
-
-                const vertical = orientation === 'vertical';
-                await expect(page.locator('.progress.position-relative')).toHaveCSS('width', vertical ? '12px' : '360px');
-                await expect(page.locator('.progress.position-relative')).toHaveCSS('height', vertical ? '300px' : '12px');
-                await expect(page.getByRole('slider')).toHaveCSS('width', vertical ? '24px' : '12px');
-                await expect(page.getByRole('slider')).toHaveCSS('height', vertical ? '12px' : '24px');
-            });
-        }
-
-        test('applies tick dimensions', async ({ page }) => {
-            await page.evaluate(() => UI.Slider.init($.findOne('#slider'), { ticks: [5], tickSize: 40 }));
-
-            await expect(page.locator('[data-ui-value="5"]')).toHaveCSS('width', '40px');
-            await expect(page.locator('[data-ui-value="5"]')).toHaveCSS('height', '40px');
-        });
-
-        for (const orientation of ['horizontal', 'vertical']) {
-            test(`uses default dimensions for invalid sizes (${orientation})`, async ({ page }) => {
-                await page.evaluate((orientation) => UI.Slider.init($.findOne('#slider'), {
-                    orientation, ticks: [5], tooltip: false,
-                    sliderSize: 0, handleSize: -1, handleSizeRatio: 'invalid',
-                    verticalHeight: Infinity, tickSize: null,
-                }), orientation);
-
-                const vertical = orientation === 'vertical';
-                await expect(page.locator('.progress.position-relative')).toHaveCSS('width', vertical ? '10px' : '360px');
-                await expect(page.locator('.progress.position-relative')).toHaveCSS('height', vertical ? '200px' : '10px');
-                await expect(page.getByRole('slider')).toHaveCSS('width', vertical ? '20px' : '15px');
-                await expect(page.getByRole('slider')).toHaveCSS('height', vertical ? '15px' : '20px');
-                await expect(page.locator('[data-ui-value="5"]')).toHaveCSS('width', '30px');
-                await page.getByRole('slider').press('End');
-                await expect(page.locator('#slider')).toHaveValue('10');
             });
         }
     });

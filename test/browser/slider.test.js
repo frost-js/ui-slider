@@ -309,15 +309,6 @@ test.describe('Slider', () => {
     });
 
     test.describe('#setValue', () => {
-        test('preserves large integer values on the step grid', async ({ page }) => {
-            await page.evaluate(() => {
-                UI.Slider.init($.findOne('#slider'), { max: 1e16, step: 1 }).setValue(1234567890123456);
-            });
-
-            await expect(page.locator('#slider')).toHaveValue('1234567890123456');
-            await expect(page.getByRole('slider')).toHaveAttribute('aria-valuenow', '1234567890123456');
-        });
-
         for (const { name, setValue } of [
             { name: 'class', setValue: () => $.getData('#slider', 'slider').setValue(7) },
             { name: 'QuerySet', setValue: () => $('#slider').slider('setValue', 7) },
@@ -344,5 +335,14 @@ test.describe('Slider', () => {
                 await expect(page.getByRole('slider', { name: 'Amount end' })).toHaveAttribute('aria-valuenow', '9');
             });
         }
+
+        test('preserves large integer values on the step grid', async ({ page }) => {
+            await page.evaluate(() => {
+                UI.Slider.init($.findOne('#slider'), { max: 1e16, step: 1 }).setValue(1234567890123456);
+            });
+
+            await expect(page.locator('#slider')).toHaveValue('1234567890123456');
+            await expect(page.getByRole('slider')).toHaveAttribute('aria-valuenow', '1234567890123456');
+        });
     });
 });
