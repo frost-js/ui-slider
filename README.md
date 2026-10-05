@@ -160,7 +160,7 @@ Resolved `instance.options` are shallow-frozen.
 
 Values accept finite numbers and numeric strings. Missing, empty, or invalid values use `defaultValue`; an invalid default falls back to `min`. Values are rounded relative to `min` and clamped after rounding, keeping both endpoints reachable even when the step does not divide the interval. Programmatic range endpoints are sorted. During interaction, crossing hands control and focus to the other handle.
 
-Bounds must form a finite ascending interval. Steps and dimensions must be positive; snapping distance must be nonnegative. Invalid numeric options or modes throw `RangeError` before registration; non-function formatters throw `TypeError`.
+Invalid numeric options fall back to defaults. Non-positive steps and dimensions also use defaults. The maximum is clamped to the minimum; an interval too large for finite arithmetic becomes a fixed-value slider at the minimum. Snapping distance is clamped to zero and disabled opacity to `[0, 1]`. An empty or invalid separator and non-function formatters use defaults. Unrecognized orientations and scales behave as horizontal and linear respectively.
 
 Logarithmic positioning uses `log1p(value - min) / log1p(max - min)`. This shifted scale supports zero and negative minima. It changes positions, while `step` remains in value units.
 
@@ -265,7 +265,7 @@ $.addEvent('#price', 'sliding.ui.slider', (event) => {
 
 Pointer movement updates `getValue()`, handles, and tooltips while the original input retains its committed value. Release uses the final pointer coordinates, emits change if needed, then emits `slid`. A click can emit `slide`, `change`, and `slid` without a `sliding` event. Keyboard and programmatic changes emit only `change`, and assigning the same normalized value emits nothing.
 
-Pointer cancellation, window blur, and disabling restore the last committed values without emitting change or `slid`. If a setter commits during a gesture, cancellation preserves that newer commit. Disposal from event listeners is supported.
+Touch cancellation, window blur, and disabling restore the last committed values without emitting change or `slid`. If a setter commits during a gesture, cancellation preserves that newer commit. Disposal from event listeners is supported. Mouse and touch gestures use fQuery’s `mouseDragFactory`; `touchcancel` ends a gesture even when another finger remains. The shared factory removes its temporary window listeners on mouse/touch completion or touch cancellation; blur, disabling, and disposal immediately stop slider updates.
 
 Native input/change synchronization and form resets do not emit an additional component change event. Register listeners before initialization if you need to observe initial normalization. Native listeners can receive the underlying event type, while fQuery also exposes its namespace.
 
@@ -336,7 +336,7 @@ Direction is inherited from the document or an ancestor. An input's own `dir` is
 - Use Frost UI 4 and fQuery 5. The package root now resolves to built ESM; browser consumers can continue using the UMD filenames and `UI.Slider`.
 - Replace imports from `src/prototype/*` and access to underscore internals with the public API. Component state is private and resolved options are frozen.
 - Build tooling uses Vite and requires Node.js `^20.19.0 || ^22.13.0 || >=24`. The package does not advertise CommonJS `require()` support.
-- Values now normalize relative to `min`, remain within bounds after rounding, retain zero ticks, and support fixed bounds and shifted logarithmic ranges. Range endpoints are ordered. Invalid configuration is rejected before registration.
+- Values now normalize relative to `min`, remain within bounds after rounding, retain zero ticks, and support fixed bounds and shifted logarithmic ranges. Range endpoints are ordered. Invalid options use fallbacks and clamping; failed initialization is cleaned up.
 - Review change listeners: initialization and setters emit change when they alter the serialized value; native synchronization and reset do not add another change event. Pointer preview and committed values are distinct.
 - The old light/dark, methods, and events demos are consolidated in [demo/index.html](./demo/index.html).
 

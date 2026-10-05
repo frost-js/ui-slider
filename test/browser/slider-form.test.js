@@ -1,5 +1,5 @@
 import { expect, test } from '#test';
-import { dispatchPointer } from '../support/input/pointer.js';
+import { dispatchDragEvent } from '../support/input/drag.js';
 
 test.describe('Slider forms', () => {
     test.beforeEach(async ({ page }) => {
@@ -37,13 +37,13 @@ test.describe('Slider forms', () => {
 
         test('replaces a drag preview with an external value', async ({ page }) => {
             await page.evaluate(() => UI.Slider.init($.findOne('#slider')));
-            await page.evaluate(dispatchPointer, { type: 'pointerdown', fraction: .8 });
+            await page.evaluate(dispatchDragEvent, { type: 'touchstart', fraction: .8 });
             await page.evaluate(() => {
                 const node = $.findOne('#slider');
                 node.value = '5';
                 node.dispatchEvent(new Event('input', { bubbles: true }));
             });
-            await page.evaluate(dispatchPointer, { type: 'pointerup', fraction: .9 });
+            await page.evaluate(dispatchDragEvent, { type: 'touchend', fraction: .9 });
 
             await expect(page.getByRole('slider')).toHaveAttribute('aria-valuenow', '5');
             await expect(page.locator('#slider')).toHaveValue('5');
@@ -121,12 +121,12 @@ test.describe('Slider forms', () => {
 
         test('cancels an active drag when its fieldset is disabled', async ({ page }) => {
             await page.evaluate(() => UI.Slider.init($.findOne('#slider')));
-            await page.evaluate(dispatchPointer, { type: 'pointerdown', fraction: .8 });
+            await page.evaluate(dispatchDragEvent, { type: 'touchstart', fraction: .8 });
             await page.evaluate(() => $.setProperty($.findOne('fieldset'), 'disabled', true));
 
             await expect(page.getByRole('slider')).toBeDisabled();
             await expect(page.getByRole('slider')).toHaveAttribute('aria-valuenow', '3');
-            await page.evaluate(dispatchPointer, { type: 'pointerup', fraction: .9 });
+            await page.evaluate(dispatchDragEvent, { type: 'touchend', fraction: .9 });
             await expect(page.locator('#slider')).toHaveValue('3');
             expect(await page.evaluate(() => window.changes)).toBe(0);
         });

@@ -100,6 +100,25 @@ test.describe('Slider styles', () => {
             await expect(page.locator('[data-ui-value="5"]')).toHaveCSS('width', '40px');
             await expect(page.locator('[data-ui-value="5"]')).toHaveCSS('height', '40px');
         });
+
+        for (const orientation of ['horizontal', 'vertical']) {
+            test(`uses default dimensions for invalid sizes (${orientation})`, async ({ page }) => {
+                await page.evaluate((orientation) => UI.Slider.init($.findOne('#slider'), {
+                    orientation, ticks: [5], tooltip: false,
+                    sliderSize: 0, handleSize: -1, handleSizeRatio: 'invalid',
+                    verticalHeight: Infinity, tickSize: null,
+                }), orientation);
+
+                const vertical = orientation === 'vertical';
+                await expect(page.locator('.progress.position-relative')).toHaveCSS('width', vertical ? '10px' : '360px');
+                await expect(page.locator('.progress.position-relative')).toHaveCSS('height', vertical ? '200px' : '10px');
+                await expect(page.getByRole('slider')).toHaveCSS('width', vertical ? '20px' : '15px');
+                await expect(page.getByRole('slider')).toHaveCSS('height', vertical ? '15px' : '20px');
+                await expect(page.locator('[data-ui-value="5"]')).toHaveCSS('width', '30px');
+                await page.getByRole('slider').press('End');
+                await expect(page.locator('#slider')).toHaveValue('10');
+            });
+        }
     });
 
     for (const { option, value, index } of [
@@ -162,6 +181,20 @@ test.describe('Slider styles', () => {
             await page.evaluate(() => $('#slider').slider('enable'));
             await expect(page.locator('#host > .position-relative')).toHaveCSS('opacity', '1');
         });
+
+        for (const { value, expected } of [
+            { value: -1, expected: '0' },
+            { value: 2, expected: '1' },
+            { value: 'invalid', expected: '0.5' },
+        ]) {
+            test(`normalizes disabledOpacity=${value}`, async ({ page }) => {
+                await page.evaluate((disabledOpacity) => {
+                    UI.Slider.init($.findOne('#slider'), { disabledOpacity }).disable();
+                }, value);
+
+                await expect(page.locator('#host > .position-relative')).toHaveCSS('opacity', expected);
+            });
+        }
     });
 
     test.describe('focus', () => {

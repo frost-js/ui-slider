@@ -1,5 +1,5 @@
 import { expect, test } from '#test';
-import { dispatchPointer } from '../support/input/pointer.js';
+import { dispatchDragEvent } from '../support/input/drag.js';
 
 test.describe('Slider native state synchronization', () => {
     for (const range of [false, true]) {
@@ -41,8 +41,8 @@ test.describe('Slider native state synchronization', () => {
                         await handles.first().focus();
                         await expect(handles.first()).toBeFocused();
                         await handles.first().press('End');
-                        await page.evaluate(dispatchPointer, { type: 'pointerdown', fraction: .5 });
-                        await page.evaluate(dispatchPointer, { type: 'pointerup', fraction: .7 });
+                        await page.evaluate(dispatchDragEvent, { type: 'touchstart', fraction: .5 });
+                        await page.evaluate(dispatchDragEvent, { type: 'touchend', fraction: .7 });
                         await expect(page.locator('#slider')).toHaveValue(range ? '2,8' : '3');
                     }
                     await page.evaluate((property) => $.setProperty('#slider', property, false), property);
@@ -124,8 +124,8 @@ test.describe('Slider native state synchronization', () => {
             ]) {
                 test(`cancels a drag when ${target} becomes ${property} and restores editing afterward`, async ({ page }) => {
                     await page.evaluate((range) => UI.Slider.init($.findOne('#slider'), { range }), range);
-                    await page.evaluate(dispatchPointer, { type: 'pointerdown', fraction: .3 });
-                    await page.evaluate(dispatchPointer, { type: 'pointermove', fraction: .6 });
+                    await page.evaluate(dispatchDragEvent, { type: 'touchstart', fraction: .3 });
+                    await page.evaluate(dispatchDragEvent, { type: 'touchmove', fraction: .6 });
                     const handles = page.getByRole('slider');
                     await expect(handles.first()).toHaveAttribute('aria-valuenow', '6');
                     await expect(page.getByRole('tooltip')).toBeVisible();
@@ -141,30 +141,33 @@ test.describe('Slider native state synchronization', () => {
                     for (const handle of await handles.all()) {
                         await expect(handle).toHaveAttribute(attribute, 'false');
                     }
-                    await page.evaluate(dispatchPointer, { type: 'pointermove', fraction: .7 });
-                    await page.evaluate(dispatchPointer, { type: 'pointerup', fraction: .7 });
+                    await page.evaluate(dispatchDragEvent, { type: 'touchmove', fraction: .7 });
+                    await page.evaluate(dispatchDragEvent, { type: 'touchend', fraction: .7 });
                     await expect(page.locator('#slider')).toHaveValue(range ? '2,8' : '3');
                     expect(await page.evaluate(() => window.stateEvents)).toEqual([]);
-                    await page.evaluate(dispatchPointer, { type: 'pointerdown', id: 2, fraction: .3 });
-                    await page.evaluate(dispatchPointer, { type: 'pointerup', id: 2, fraction: .6 });
+                    await page.evaluate(dispatchDragEvent, { type: 'touchstart', id: 2, fraction: .3 });
+                    await page.evaluate(dispatchDragEvent, { type: 'touchend', id: 2, fraction: .6 });
                     await expect(page.locator('#slider')).toHaveValue(range ? '6,8' : '6');
                     expect(await page.evaluate(() => window.stateEvents)).toEqual(['change', 'slid']);
                 });
             }
 
-            for (const phase of ['pointermove', 'pointerup']) {
+            for (const phase of ['touchmove', 'touchend']) {
                 test(`checks readonly before ${phase} without waiting for the observer`, async ({ page }) => {
                     await page.evaluate((range) => UI.Slider.init($.findOne('#slider'), { range, tooltip: false }), range);
-                    await page.evaluate(dispatchPointer, { type: 'pointerdown', fraction: .3 });
+                    await page.evaluate(dispatchDragEvent, { type: 'touchstart', fraction: .3 });
                     await page.evaluate((phase) => {
                         const rect = $.findOne('#host .progress.position-relative').getBoundingClientRect();
                         $.setProperty('#slider', 'readOnly', true);
-                        for (const type of [phase, 'pointerup']) {
-                            window.dispatchEvent(new PointerEvent(type, {
-                                pointerType: 'touch', pointerId: 1,
-                                clientX: rect.left + rect.width * .7,
-                                clientY: rect.top + rect.height / 2,
-                            }));
+                        for (const type of [phase, 'touchend']) {
+                            const touch = {
+                                identifier: 1,
+                                pageX: rect.left + rect.width * .7,
+                                pageY: rect.top + rect.height / 2,
+                            };
+                            $.triggerEvent(window, type, {
+                                data: { touches: type === 'touchend' ? [] : [touch], changedTouches: [touch] },
+                            });
                         }
                     }, phase);
                     await expect(page.locator('#slider')).toHaveValue(range ? '2,8' : '3');
@@ -261,7 +264,7 @@ test.describe('Slider native state synchronization', () => {
         await expect(page.locator('#slider')).toHaveValue('4');
     });
 
-    for (const phase of ['focus', 'pointermove', 'pointerup', 'keyboard']) {
+    for (const phase of ['focus', 'touchmove', 'touchend', 'keyboard']) {
         test(`honors readonly set by a ${phase} focus handler`, async ({ page }) => {
             await page.evaluate((phase) => {
                 $.setHtml(document.body,
@@ -277,11 +280,11 @@ test.describe('Slider native state synchronization', () => {
             if (phase === 'keyboard') {
                 await page.getByRole('slider').first().press('End');
             } else {
-                await page.evaluate(dispatchPointer, { type: 'pointerdown', fraction: .2 });
-                if (phase === 'pointermove') {
-                    await page.evaluate(dispatchPointer, { type: 'pointermove', fraction: .9 });
+                await page.evaluate(dispatchDragEvent, { type: 'touchstart', fraction: .2 });
+                if (phase === 'touchmove') {
+                    await page.evaluate(dispatchDragEvent, { type: 'touchmove', fraction: .9 });
                 }
-                await page.evaluate(dispatchPointer, { type: 'pointerup', fraction: .9 });
+                await page.evaluate(dispatchDragEvent, { type: 'touchend', fraction: .9 });
             }
             await expect(page.locator('#slider')).toHaveValue('2,8');
             await expect(page.getByRole('slider').first()).toHaveAttribute('aria-valuenow', '2');

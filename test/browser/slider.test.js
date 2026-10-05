@@ -1,5 +1,5 @@
 import { expect, test } from '#test';
-import { dispatchPointer } from '../support/input/pointer.js';
+import { dispatchDragEvent } from '../support/input/drag.js';
 
 test.describe('Slider', () => {
     test.beforeEach(async ({ page }) => {
@@ -64,6 +64,17 @@ test.describe('Slider', () => {
 
             await expect(page.getByRole('slider')).toHaveAttribute('aria-valuemin', '2');
             await expect(page.getByRole('slider')).toHaveAttribute('aria-valuemax', '12');
+        });
+
+        test('normalizes numeric strings while keeping public options frozen', async ({ page }) => {
+            const instance = await page.evaluateHandle(() => {
+                return UI.Slider.init($.findOne('#slider'), { min: '2', max: '8', step: '.5' });
+            });
+
+            expect(await instance.evaluate((slider) => Object.isFrozen(slider.options))).toBe(true);
+            expect(await instance.evaluate((slider) => slider.options.step)).toBe('.5');
+            await page.getByRole('slider').press('ArrowRight');
+            await expect(page.locator('#slider')).toHaveValue('3.5');
         });
 
         test('rejects non-input nodes without registering an instance', async ({ page }) => {
@@ -436,9 +447,9 @@ test.describe('Slider', () => {
                     $.addEvent('#slider', 'change.ui.slider', () => window.changes++);
                     $.addEvent('#slider', 'slid.ui.slider', () => window.releases++);
                 }, event);
-                await page.evaluate(dispatchPointer, { type: 'pointerdown', fraction: .5 });
-                await page.evaluate(dispatchPointer, { type: 'pointermove', fraction: .8 });
-                await page.evaluate(dispatchPointer, { type: 'pointerup', fraction: .9 });
+                await page.evaluate(dispatchDragEvent, { type: 'touchstart', fraction: .5 });
+                await page.evaluate(dispatchDragEvent, { type: 'touchmove', fraction: .8 });
+                await page.evaluate(dispatchDragEvent, { type: 'touchend', fraction: .9 });
 
                 await expect(page.getByRole('slider')).toBeDisabled();
                 await expect(page.getByRole('slider')).toHaveAttribute('aria-valuenow', '3');
@@ -562,34 +573,34 @@ test.describe('Slider', () => {
             });
 
             test('uses touch release coordinates', async ({ page }) => {
-                expect(await page.evaluate(dispatchPointer, { type: 'pointerdown', fraction: .2 })).toBe(true);
-                await page.evaluate(dispatchPointer, { type: 'pointerup', fraction: .9 });
+                expect(await page.evaluate(dispatchDragEvent, { type: 'touchstart', fraction: .2 })).toBe(true);
+                await page.evaluate(dispatchDragEvent, { type: 'touchend', fraction: .9 });
 
                 await expect(page.locator('#slider')).toHaveValue('9');
             });
 
-            test('ignores additional pointers during a touch gesture', async ({ page }) => {
-                await page.evaluate(dispatchPointer, { type: 'pointerdown', fraction: .5 });
-                await page.evaluate(dispatchPointer, { type: 'pointerdown', id: 2, primary: false });
-                await page.evaluate(dispatchPointer, { type: 'pointermove', id: 2, fraction: .9 });
-                await page.evaluate(dispatchPointer, { type: 'pointerup', id: 2, fraction: .9 });
+            test('ignores additional fingers during a touch gesture', async ({ page }) => {
+                await page.evaluate(dispatchDragEvent, { type: 'touchstart', fraction: .5 });
+                await page.evaluate(dispatchDragEvent, { type: 'touchstart', id: 2 });
+                await page.evaluate(dispatchDragEvent, { type: 'touchmove', id: 2, fraction: .9 });
+                await page.evaluate(dispatchDragEvent, { type: 'touchend', id: 2, fraction: .9 });
                 await expect(page.getByRole('slider')).toHaveAttribute('aria-valuenow', '5');
-                await page.evaluate(dispatchPointer, { type: 'pointerup', fraction: .5 });
+                await page.evaluate(dispatchDragEvent, { type: 'touchend', fraction: .5 });
                 await expect(page.locator('#slider')).toHaveValue('5');
             });
 
-            for (const reason of ['pointercancel', 'blur', 'disable']) {
+            for (const reason of ['touchcancel', 'blur', 'disable']) {
                 test(`restores the committed value after ${reason}`, async ({ page }) => {
-                    await page.evaluate(dispatchPointer, { type: 'pointerdown', fraction: .8 });
+                    await page.evaluate(dispatchDragEvent, { type: 'touchstart', fraction: .8 });
                     await page.evaluate((reason) => {
                         if (reason === 'disable') {
                             $('#slider').slider('disable');
                         } else {
-                            window.dispatchEvent(new PointerEvent(reason, { pointerId: 1 }));
+                            $.triggerEvent(window, reason, { data: { touches: [], changedTouches: [] } });
                         }
                     }, reason);
-                    await page.evaluate(dispatchPointer, { type: 'pointermove', fraction: .1 });
-                    await page.evaluate(dispatchPointer, { type: 'pointerup', fraction: .1 });
+                    await page.evaluate(dispatchDragEvent, { type: 'touchmove', fraction: .1 });
+                    await page.evaluate(dispatchDragEvent, { type: 'touchend', fraction: .1 });
 
                     await expect(page.locator('#slider')).toHaveValue('3');
                     await expect(page.getByRole('slider')).toHaveAttribute('aria-valuenow', '3');
@@ -597,9 +608,9 @@ test.describe('Slider', () => {
             }
 
             test('preserves a programmatic commit when a gesture is canceled', async ({ page }) => {
-                await page.evaluate(dispatchPointer, { type: 'pointerdown', fraction: .8 });
+                await page.evaluate(dispatchDragEvent, { type: 'touchstart', fraction: .8 });
                 await page.evaluate(() => $('#slider').slider('setValue', 6));
-                await page.evaluate(dispatchPointer, { type: 'pointercancel' });
+                await page.evaluate(dispatchDragEvent, { type: 'touchcancel' });
 
                 await expect(page.locator('#slider')).toHaveValue('6');
                 await expect(page.getByRole('slider')).toHaveAttribute('aria-valuenow', '6');
@@ -620,8 +631,8 @@ test.describe('Slider', () => {
                     { name: 'start handle crossing the end', range: true, start: .2, move: .9, preview: [2, 9], active: 1 },
                     { name: 'end handle crossing the start', range: true, start: .8, move: .1, preview: [1, 8], active: 0 },
                 ]) {
-                    for (const remainingPointer of [false, true]) {
-                        test(`restores ${name} with ${remainingPointer ? 'another pointer active' : 'no other pointer active'} and allows a fresh gesture`, async ({ page }) => {
+                    for (const remainingTouch of [false, true]) {
+                        test(`restores ${name} with ${remainingTouch ? 'another touch active' : 'no other touch active'} and allows a fresh gesture`, async ({ page }) => {
                             await page.evaluate(({ direction, range }) => {
                                 const node = $.findOne('#slider');
                                 $.setAttribute(node, 'dir', direction);
@@ -632,9 +643,9 @@ test.describe('Slider', () => {
                                     $.addEvent(node, `${name}.ui.slider`, () => window.events.push(name));
                                 }
                             }, { direction, range });
-                            await page.evaluate(dispatchPointer, { type: 'pointerdown', fraction: fraction(start) });
+                            await page.evaluate(dispatchDragEvent, { type: 'touchstart', fraction: fraction(start) });
                             if (move !== undefined) {
-                                await page.evaluate(dispatchPointer, { type: 'pointermove', fraction: fraction(move) });
+                                await page.evaluate(dispatchDragEvent, { type: 'touchmove', fraction: fraction(move) });
                             }
 
                             const handles = page.getByRole('slider');
@@ -644,10 +655,10 @@ test.describe('Slider', () => {
                             await expect(handles.nth(active)).toBeFocused();
                             await expect(page.locator('#slider')).toHaveValue(range ? '2,8' : '3');
                             await expect(page.getByRole('tooltip')).toHaveText(range ? preview.join(' - ') : `${preview[0]}`);
-                            if (remainingPointer) {
-                                await page.evaluate(dispatchPointer, { type: 'pointerdown', id: 2, primary: false });
+                            if (remainingTouch) {
+                                await page.evaluate(dispatchDragEvent, { type: 'touchstart', id: 2 });
                             }
-                            await page.evaluate(dispatchPointer, { type: 'pointercancel', fraction: fraction(.9) });
+                            await page.evaluate(dispatchDragEvent, { type: 'touchcancel', fraction: fraction(.9) });
 
                             const committed = range ? [2, 8] : [3];
                             expect(await page.evaluate(() => $('#slider').slider('getValue'))).toEqual(range ? committed : committed[0]);
@@ -662,17 +673,17 @@ test.describe('Slider', () => {
                             await expect(page.getByRole('tooltip')).toHaveCount(0);
 
                             for (const id of [1, 2]) {
-                                await page.evaluate(dispatchPointer, { type: 'pointermove', id, fraction: fraction(.1) });
-                                await page.evaluate(dispatchPointer, { type: 'pointerup', id, fraction: fraction(.1) });
+                                await page.evaluate(dispatchDragEvent, { type: 'touchmove', id, fraction: fraction(.1) });
+                                await page.evaluate(dispatchDragEvent, { type: 'touchend', id, fraction: fraction(.1) });
                             }
                             await expect(page.locator('#slider')).toHaveValue(committed.join(','));
                             expect(await page.evaluate(() => $('#slider').slider('getValue'))).toEqual(range ? committed : committed[0]);
                             const canceledEvents = move === undefined ? ['slide'] : ['slide', 'sliding'];
                             expect(await page.evaluate(() => window.events)).toEqual(canceledEvents);
 
-                            await page.evaluate(dispatchPointer, { type: 'pointerdown', id: 3, fraction: fraction(.3) });
-                            await page.evaluate(dispatchPointer, { type: 'pointermove', id: 3, fraction: fraction(.6) });
-                            await page.evaluate(dispatchPointer, { type: 'pointerup', id: 3, fraction: fraction(.6) });
+                            await page.evaluate(dispatchDragEvent, { type: 'touchstart', id: 3, fraction: fraction(.3) });
+                            await page.evaluate(dispatchDragEvent, { type: 'touchmove', id: 3, fraction: fraction(.6) });
+                            await page.evaluate(dispatchDragEvent, { type: 'touchend', id: 3, fraction: fraction(.6) });
                             await expect(page.locator('#slider')).toHaveValue(range ? '6,8' : '6');
                             await expect(handles.first()).toHaveAttribute('aria-valuenow', '6');
                             expect(await page.evaluate(() => window.events)).toEqual([...canceledEvents, 'slide', 'sliding', 'change', 'slid']);
@@ -681,7 +692,7 @@ test.describe('Slider', () => {
                 }
 
                 for (const range of [false, true]) {
-                    test(`ignores cancellation of an unrelated pointer during a ${range ? 'range' : 'single'} slider gesture`, async ({ page }) => {
+                    test(`cancels when another touch is canceled during a ${range ? 'range' : 'single'} slider gesture`, async ({ page }) => {
                         await page.evaluate(({ direction, range }) => {
                             const node = $.findOne('#slider');
                             $.setAttribute(node, 'dir', direction);
@@ -692,22 +703,25 @@ test.describe('Slider', () => {
                                 $.addEvent(node, `${name}.ui.slider`, () => window.events.push(name));
                             }
                         }, { direction, range });
-                        await page.evaluate(dispatchPointer, { type: 'pointerdown', fraction: fraction(.3) });
-                        await page.evaluate(dispatchPointer, { type: 'pointermove', fraction: fraction(.5) });
-                        await page.evaluate(dispatchPointer, { type: 'pointerdown', id: 2, primary: false });
-                        await page.evaluate(dispatchPointer, { type: 'pointercancel', id: 2, primary: false, fraction: fraction(.9) });
-                        await page.evaluate(dispatchPointer, { type: 'pointermove', id: 2, fraction: fraction(.9) });
-                        await page.evaluate(dispatchPointer, { type: 'pointerup', id: 2, fraction: fraction(.9) });
+                        await page.evaluate(dispatchDragEvent, { type: 'touchstart', fraction: fraction(.3) });
+                        await page.evaluate(dispatchDragEvent, { type: 'touchmove', fraction: fraction(.5) });
+                        await page.evaluate(dispatchDragEvent, { type: 'touchstart', id: 2 });
+                        await page.evaluate(dispatchDragEvent, { type: 'touchcancel', id: 2, fraction: fraction(.9) });
+                        await page.evaluate(dispatchDragEvent, { type: 'touchmove', id: 2, fraction: fraction(.9) });
+                        await page.evaluate(dispatchDragEvent, { type: 'touchend', id: 2, fraction: fraction(.9) });
 
-                        await expect(page.getByRole('slider').first()).toHaveAttribute('aria-valuenow', '5');
+                        await expect(page.getByRole('slider').first()).toHaveAttribute('aria-valuenow', range ? '2' : '3');
                         await expect(page.locator('#slider')).toHaveValue(range ? '2,8' : '3');
                         expect(await page.evaluate(() => window.events)).toEqual(['slide', 'sliding']);
-                        await page.evaluate(dispatchPointer, { type: 'pointermove', fraction: fraction(.6) });
-                        await page.evaluate(dispatchPointer, { type: 'pointerup', fraction: fraction(.7) });
+                        await page.evaluate(dispatchDragEvent, { type: 'touchmove', fraction: fraction(.6) });
+                        await page.evaluate(dispatchDragEvent, { type: 'touchend', fraction: fraction(.7) });
 
+                        await expect(page.locator('#slider')).toHaveValue(range ? '2,8' : '3');
+                        expect(await page.evaluate(() => window.events)).toEqual(['slide', 'sliding']);
+                        await page.evaluate(dispatchDragEvent, { type: 'touchstart', id: 3, fraction: fraction(.3) });
+                        await page.evaluate(dispatchDragEvent, { type: 'touchend', id: 3, fraction: fraction(.7) });
                         await expect(page.locator('#slider')).toHaveValue(range ? '7,8' : '7');
-                        await expect(page.getByRole('slider').first()).toHaveAttribute('aria-valuenow', '7');
-                        expect(await page.evaluate(() => window.events)).toEqual(['slide', 'sliding', 'sliding', 'change', 'slid']);
+                        expect(await page.evaluate(() => window.events)).toEqual(['slide', 'sliding', 'slide', 'change', 'slid']);
                     });
                 }
             });
@@ -722,16 +736,13 @@ test.describe('Slider', () => {
             await expect(page.getByRole('slider')).toHaveAttribute('aria-valuemin', '4');
         });
 
-        test('rejects bounds in descending order', async ({ page }) => {
-            expect(await page.evaluate(() => {
-                try {
-                    UI.Slider.init($.findOne('#slider'), { min: 20 });
-                } catch (error) {
-                    return error instanceof RangeError;
-                }
-            })).toBe(true);
-            expect(await page.evaluate(() => $.hasData('#slider', 'slider'))).toBe(false);
-            await expect(page.getByRole('slider')).toHaveCount(0);
+        test('clamps the maximum to the minimum for descending bounds', async ({ page }) => {
+            await page.evaluate(() => UI.Slider.init($.findOne('#slider'), { min: 20 }));
+
+            await expect(page.getByRole('slider')).toHaveAttribute('aria-valuemin', '20');
+            await expect(page.getByRole('slider')).toHaveAttribute('aria-valuemax', '20');
+            await page.getByRole('slider').press('End');
+            await expect(page.locator('#slider')).toHaveValue('20');
         });
     });
 
@@ -751,22 +762,29 @@ test.describe('Slider', () => {
                 await expect(page.getByRole('slider')).toHaveCSS('left', '0px');
                 await page.getByRole('slider').press('End');
                 await expect(page.locator('#slider')).toHaveValue('5');
-                await page.evaluate(dispatchPointer, { type: 'pointerdown', fraction: .5 });
-                await page.evaluate(dispatchPointer, { type: 'pointerup', fraction: .8 });
+                await page.evaluate(dispatchDragEvent, { type: 'touchstart', fraction: .5 });
+                await page.evaluate(dispatchDragEvent, { type: 'touchend', fraction: .8 });
                 await expect(page.locator('#slider')).toHaveValue('5');
                 await expect(page.getByRole('slider')).toHaveCSS('left', '0px');
             });
         }
 
-        test('rejects non-finite bounds', async ({ page }) => {
-            expect(await page.evaluate(() => {
-                try {
-                    UI.Slider.init($.findOne('#slider'), { max: Infinity });
-                } catch (error) {
-                    return error instanceof RangeError;
-                }
-            })).toBe(true);
-            await expect(page.getByRole('slider')).toHaveCount(0);
+        test('falls back to the default for non-finite bounds', async ({ page }) => {
+            await page.evaluate(() => UI.Slider.init($.findOne('#slider'), { max: Infinity }));
+
+            await expect(page.getByRole('slider')).toHaveAttribute('aria-valuemax', '10');
+            await page.getByRole('slider').press('End');
+            await expect(page.locator('#slider')).toHaveValue('10');
+        });
+
+        test('renders overflowing intervals as a fixed-value slider', async ({ page }) => {
+            await page.evaluate(() => UI.Slider.init($.findOne('#slider'), {
+                min: -Number.MAX_VALUE, max: Number.MAX_VALUE,
+            }));
+
+            await expect(page.getByRole('slider')).toHaveCSS('left', '0px');
+            await page.getByRole('slider').press('End');
+            expect(await page.evaluate(() => $('#slider').slider('getValue'))).toBe(-Number.MAX_VALUE);
         });
     });
 
@@ -813,16 +831,12 @@ test.describe('Slider', () => {
             await expect(page.locator('#slider')).toHaveValue('10');
         });
 
-        for (const step of [0, -1]) {
-            test(`rejects step=${step}`, async ({ page }) => {
-                expect(await page.evaluate((step) => {
-                    try {
-                        UI.Slider.init($.findOne('#slider'), { step });
-                    } catch (error) {
-                        return error instanceof RangeError;
-                    }
-                }, step)).toBe(true);
-                await expect(page.getByRole('slider')).toHaveCount(0);
+        for (const step of [0, -1, 'invalid', Infinity]) {
+            test(`uses the default step for step=${step}`, async ({ page }) => {
+                await page.evaluate((step) => UI.Slider.init($.findOne('#slider'), { step }), step);
+                await page.getByRole('slider').press('ArrowRight');
+
+                await expect(page.locator('#slider')).toHaveValue('4');
             });
         }
     });
@@ -879,18 +893,31 @@ test.describe('Slider', () => {
             await expect(page.locator('#slider')).toHaveValue('2:7');
         });
 
-        test('rejects an empty separator', async ({ page }) => {
-            expect(await page.evaluate(() => {
-                try {
-                    UI.Slider.init($.findOne('#slider'), { rangeSeparator: '' });
-                } catch (error) {
-                    return error instanceof RangeError;
-                }
-            })).toBe(true);
+        test('uses the default for an empty separator', async ({ page }) => {
+            await page.evaluate(() => {
+                UI.Slider.init($.findOne('#slider'), { range: true, rangeSeparator: '' }).setValue(2, 8);
+            });
+
+            await expect(page.locator('#slider')).toHaveValue('2,8');
+            await page.getByRole('slider').last().press('End');
+            await expect(page.locator('#slider')).toHaveValue('2,10');
         });
     });
 
     test.describe('orientation option', () => {
+        test('uses horizontal linear behavior for unrecognized modes', async ({ page }) => {
+            await page.evaluate(() => UI.Slider.init($.findOne('#slider'), {
+                orientation: 'invalid', scale: 'invalid', tooltip: false,
+            }));
+
+            await expect(page.getByRole('slider')).toHaveAttribute('aria-orientation', 'horizontal');
+            await page.getByRole('slider').press('ArrowRight');
+            await expect(page.locator('#slider')).toHaveValue('4');
+            const box = await page.locator('#host .progress.position-relative').boundingBox();
+            await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+            await expect(page.locator('#slider')).toHaveValue('5');
+        });
+
         for (const orientation of ['horizontal', 'vertical']) {
             test(`exposes ${orientation} orientation`, async ({ page }) => {
                 await page.evaluate((orientation) => UI.Slider.init($.findOne('#slider'), { orientation }), orientation);
@@ -1004,9 +1031,9 @@ test.describe('Slider', () => {
             }));
             await page.locator('[data-ui-value="2.5"]').click();
             await expect(page.locator('#slider')).toHaveValue('2.5');
-            await page.evaluate(dispatchPointer, { type: 'pointerdown', fraction: .8 });
+            await page.evaluate(dispatchDragEvent, { type: 'touchstart', fraction: .8 });
             await expect(page.getByRole('slider')).toHaveAttribute('aria-valuenow', '8');
-            await page.evaluate(dispatchPointer, { type: 'pointercancel' });
+            await page.evaluate(dispatchDragEvent, { type: 'touchcancel' });
 
             await expect(page.locator('#slider')).toHaveValue('2.5');
             await expect(page.getByRole('slider')).toHaveAttribute('aria-valuenow', '2.5');
@@ -1108,14 +1135,13 @@ test.describe('Slider', () => {
             await expect(page.getByRole('tooltip')).toHaveText('Value 7');
         });
 
-        test('rejects non-function formatters', async ({ page }) => {
-            expect(await page.evaluate(() => {
-                try {
-                    UI.Slider.init($.findOne('#slider'), { valueText: 'invalid' });
-                } catch (error) {
-                    return error instanceof TypeError;
-                }
-            })).toBe(true);
+        test('uses the default for a non-function formatter', async ({ page }) => {
+            await page.evaluate(() => {
+                UI.Slider.init($.findOne('#slider'), { tooltip: 'always', valueText: 'invalid' }).setValue(7);
+            });
+
+            await expect(page.getByRole('slider')).toHaveAttribute('aria-valuetext', '7');
+            await expect(page.getByRole('tooltip')).toHaveText('7');
         });
     });
 
@@ -1126,6 +1152,16 @@ test.describe('Slider', () => {
             }).setValue(2, 8));
 
             await expect(page.getByRole('tooltip')).toHaveText('2 to 8');
+        });
+
+        test('uses the default for a non-function formatter', async ({ page }) => {
+            await page.evaluate(() => {
+                UI.Slider.init($.findOne('#slider'), {
+                    range: true, tooltip: 'always', rangeText: null,
+                }).setValue(2, 8);
+            });
+
+            await expect(page.getByRole('tooltip')).toHaveText('2 - 8');
         });
     });
 });

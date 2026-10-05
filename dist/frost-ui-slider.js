@@ -46,6 +46,16 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 		return Number.isFinite(number) ? number : fallback;
 	}
 	/**
+	* Parses a positive finite number, using a fallback for invalid input.
+	* @param {*} value The value to parse.
+	* @param {number} fallback The positive fallback value.
+	* @returns {number} The positive number or fallback.
+	*/
+	function parsePositiveNumber(value, fallback) {
+		const number = parseNumber(value, fallback);
+		return number > 0 ? number : fallback;
+	}
+	/**
 	* Normalizes a value to a min-anchored step while keeping endpoints reachable.
 	* @param {*} value The input value.
 	* @param {number} min The lower bound.
@@ -86,51 +96,10 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 		if (percent === 100) return max;
 		return min + (logarithmic ? Math.expm1(Math.log1p(max - min) * percent / 100) : (max - min) * percent / 100);
 	}
-	/**
-	* Validates and normalizes numeric component options before registration.
-	* @param {object} options The merged component options.
-	* @returns {object} The validated options.
-	* @throws {RangeError} When bounds, steps, dimensions, or modes are invalid.
-	* @throws {TypeError} When value formatters are not functions.
-	*/
-	function validateOptions(options) {
-		const result = { ...options };
-		for (const key of [
-			"min",
-			"max",
-			"step",
-			"tickSize",
-			"handleSize",
-			"handleSizeRatio",
-			"sliderSize",
-			"verticalHeight",
-			"tickSnapBounds",
-			"disabledOpacity"
-		]) {
-			result[key] = parseNumber(result[key], NaN);
-			if (!Number.isFinite(result[key])) throw new RangeError(`Slider ${key} must be finite.`);
-		}
-		if (result.min > result.max || !Number.isFinite(result.max - result.min)) throw new RangeError("Slider bounds must form a finite ascending interval.");
-		for (const key of [
-			"step",
-			"tickSize",
-			"handleSize",
-			"handleSizeRatio",
-			"sliderSize",
-			"verticalHeight"
-		]) if (result[key] <= 0) throw new RangeError(`Slider ${key} must be positive.`);
-		if (result.tickSnapBounds < 0 || result.disabledOpacity < 0 || result.disabledOpacity > 1 || !["horizontal", "vertical"].includes(result.orientation) || !["linear", "logarithmic"].includes(result.scale) || ![
-			false,
-			"show",
-			"always"
-		].includes(result.tooltip) || typeof result.rangeSeparator !== "string" || !result.rangeSeparator.length) throw new RangeError("Invalid Slider mode, separator, snap bounds, or opacity.");
-		if (typeof result.valueText !== "function" || typeof result.rangeText !== "function") throw new TypeError("Slider valueText and rangeText must be functions.");
-		result.defaultValue = parseNumber(result.defaultValue, result.min);
-		return result;
-	}
 
 //#endregion
 //#region src/slider.js
+	var window = _fr0st_query.default.getWindow();
 	var ariaAttributes = [
 		"aria-describedby",
 		"aria-errormessage",
@@ -223,47 +192,94 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 		#barHigh;
 		#barLow;
 		#barSelection;
+		#blurHandler;
 		#container;
+		#defaultValue;
+		#disabledOpacity;
 		#drag;
-		#dragController;
-		#eventController;
+		#form;
 		#handles = [];
+		#handleSize;
+		#handleSizeRatio;
 		#hidden;
 		#highlights = [];
 		#label;
+		#max;
+		#min;
 		#observer;
+		#rangeSeparator;
+		#resetHandler;
 		#resetTimers = /* @__PURE__ */ new Set();
 		#slider;
+		#sliderSize;
+		#step;
+		#synchronize;
 		#syncing = false;
 		#tabIndex;
 		#ticks = [];
+		#tickSize;
+		#tickSnapBounds;
 		#tooltip;
 		#tooltipTriggers = /* @__PURE__ */ new Set();
 		#values = [];
+		#verticalHeight;
 		/**
-		* Creates a Slider after validating its options without registering invalid input.
+		* Creates a Slider.
 		* @param {HTMLInputElement} node The input node.
 		* @param {SliderOptions} [options] The component options.
 		* @throws {TypeError} When the node is not an input element.
 		*/
 		constructor(node, options) {
-			if (node?.tagName !== "INPUT") throw new TypeError("Slider must be created on an input element.");
-			const settings = validateOptions({
-				...new.target.defaults,
-				...(0, _fr0st_ui.getDataset)(node),
-				...options
-			});
-			super(node, settings);
-			this.#hidden = _fr0st_query.default.hasClass(node, this.constructor.classes.hide);
-			this.#tabIndex = _fr0st_query.default.getAttribute(node, "tabindex");
-			this.#ariaHidden = _fr0st_query.default.getAttribute(node, "aria-hidden");
-			this.#label = Array.from(node.labels || [], (label) => _fr0st_query.default.getText(label).trim()).join(" ");
+			if (!_fr0st_query.default.is(node, "input")) throw new TypeError("Slider must be created on an input element.");
+			super(node, options);
 			try {
+				this.#hidden = _fr0st_query.default.hasClass(node, this.constructor.classes.hide);
+				this.#tabIndex = _fr0st_query.default.getAttribute(node, "tabindex");
+				this.#ariaHidden = _fr0st_query.default.getAttribute(node, "aria-hidden");
+				const labels = _fr0st_query.default.getProperty(node, "labels") || [];
+				this.#label = [...labels].map((label) => _fr0st_query.default.getText(label).trim()).join(" ");
+				const defaults = this.constructor.defaults;
+				this.#min = parseNumber(this.options.min, defaults.min);
+				this.#max = Math.max(this.#min, parseNumber(this.options.max, defaults.max));
+				if (!Number.isFinite(this.#max - this.#min)) this.#max = this.#min;
+				this.#step = parsePositiveNumber(this.options.step, defaults.step);
+				this.#defaultValue = parseNumber(this.options.defaultValue, this.#min);
+				this.#tickSize = parsePositiveNumber(this.options.tickSize, defaults.tickSize);
+				this.#handleSize = parsePositiveNumber(this.options.handleSize, defaults.handleSize);
+				this.#handleSizeRatio = parsePositiveNumber(this.options.handleSizeRatio, defaults.handleSizeRatio);
+				this.#sliderSize = parsePositiveNumber(this.options.sliderSize, defaults.sliderSize);
+				this.#verticalHeight = parsePositiveNumber(this.options.verticalHeight, defaults.verticalHeight);
+				this.#tickSnapBounds = Math.max(0, parseNumber(this.options.tickSnapBounds, defaults.tickSnapBounds));
+				this.#disabledOpacity = _fr0st_query.default._clamp(parseNumber(this.options.disabledOpacity, defaults.disabledOpacity), 0, 1);
+				this.#rangeSeparator = typeof this.options.rangeSeparator === "string" && this.options.rangeSeparator.length ? this.options.rangeSeparator : defaults.rangeSeparator;
 				const focused = _fr0st_query.default.is(node, ":focus");
-				this.#normalizeTicks();
+				const { ticks, tickLabels, rangeHighlights } = this.options;
+				const min = this.#min;
+				const max = this.#max;
+				const seen = /* @__PURE__ */ new Set();
+				for (const [index, input] of (Array.isArray(ticks) ? ticks : []).entries()) {
+					const value = parseNumber(input, NaN);
+					if (!Number.isFinite(value) || value < min || value > max || seen.has(value)) continue;
+					seen.add(value);
+					this.#ticks.push({
+						value,
+						label: tickLabels?.[index],
+						node: null
+					});
+				}
+				this.#ticks.sort((a, b) => a.value - b.value);
+				for (const range of Array.isArray(rangeHighlights) ? rangeHighlights : []) {
+					const start = parseNumber(range?.start, NaN);
+					const end = parseNumber(range?.end, NaN);
+					if (Number.isFinite(start) && Number.isFinite(end)) this.#highlights.push({
+						start: Math.max(min, Math.min(max, Math.min(start, end))),
+						end: Math.max(min, Math.min(max, Math.max(start, end))),
+						style: range.style
+					});
+				}
 				this.#render();
 				this.#events();
-				this.#readInput();
+				this.#refresh();
 				if (this.node) this.#refreshState();
 				if (this.node && focused) _fr0st_query.default.focus(this.#handles[0]);
 			} catch (error) {
@@ -281,8 +297,10 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 		/** @inheritdoc */
 		dispose() {
 			if (!this.node) return;
-			this.#dragController?.abort();
-			this.#eventController?.abort();
+			if (this.#blurHandler) _fr0st_query.default.removeEvent(window, "blur.ui.slider", this.#blurHandler);
+			_fr0st_query.default.removeEvent(this.node, "focus.ui.slider");
+			if (this.#synchronize) _fr0st_query.default.removeEvent(this.node, "input.ui.slider change.ui.slider", this.#synchronize);
+			if (this.#form && this.#resetHandler) _fr0st_query.default.removeEvent(this.#form, "reset.ui.slider", this.#resetHandler);
 			this.#observer?.disconnect();
 			for (const timer of this.#resetTimers) clearTimeout(timer);
 			this.#resetTimers.clear();
@@ -300,9 +318,11 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 			this.#barHigh = null;
 			this.#barLow = null;
 			this.#barSelection = null;
+			this.#blurHandler = null;
 			this.#container = null;
-			this.#dragController = null;
-			this.#eventController = null;
+			this.#form = null;
+			this.#resetHandler = null;
+			this.#synchronize = null;
 			this.#handles = [];
 			this.#highlights = [];
 			this.#observer = null;
@@ -334,134 +354,35 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 			this.#setValues(this.options.range ? [start, end] : [start]);
 		}
 		/**
-		* Moves the active handle, handing focus to the other handle when crossing.
-		* @param {number} value The normalized value.
-		* @param {boolean} commit Whether to update the native input.
-		*/
-		#applyValue(value, commit) {
-			const values = [...this.#values];
-			let active = this.#active;
-			if (this.options.range) {
-				if (value < values[0]) active = 0;
-				else if (value > values[1]) active = 1;
-			}
-			values[active] = value;
-			if (this.#active !== active) {
-				this.#active = active;
-				_fr0st_query.default.focus(this.#handles[active]);
-				if (this.node && (_fr0st_query.default.is(this.node, ":disabled") || _fr0st_query.default.getProperty(this.node, "readOnly"))) {
-					this.#refreshState();
-					return;
-				}
-			}
-			if (this.node) this.#setValues(values, {
-				commit,
-				normalized: true
-			});
-		}
-		/**
 		* Rolls back a canceled gesture to the native committed value.
 		*/
 		#cancelDrag() {
 			if (!this.#drag) return;
-			this.#dragController?.abort();
-			this.#dragController = null;
 			const values = this.#drag.values;
 			this.#drag = null;
 			this.#tooltipTriggers.delete("drag");
-			if (this.node) this.#setValues(values, {
+			this.#setValues(values, {
 				commit: false,
 				normalized: true
 			});
 		}
 		/**
-		* Commits the rendered values and emits one change event if the input changed.
-		* @param {boolean} emit Whether to emit a change event.
-		*/
-		#commit(emit) {
-			if (this.#drag) this.#drag.values = [...this.#values];
-			const value = this.#values.join(this.options.rangeSeparator);
-			if (value === _fr0st_query.default.getValue(this.node)) return;
-			_fr0st_query.default.setValue(this.node, value);
-			if (emit) {
-				this.#syncing = true;
-				try {
-					_fr0st_query.default.triggerEvent(this.node, "change.ui.slider");
-				} finally {
-					this.#syncing = false;
-				}
-			}
-		}
-		/**
-		* Gets the documented drag event payload.
-		* @returns {number|{start: number, end: number}} The preview or final values.
-		*/
-		#detail() {
-			return this.options.range ? {
-				start: this.#values[0],
-				end: this.#values[1]
-			} : this.#values[0];
-		}
-		/**
-		* Begins a pointer gesture and installs removable window handlers.
-		* @param {PointerEvent} event The initiating event.
-		*/
-		#down(event) {
-			if (!this.node || this.#drag || event.button !== 0 || event.isPrimary === false || _fr0st_query.default.is(this.node, ":disabled") || _fr0st_query.default.getProperty(this.node, "readOnly")) return;
-			const target = event.target.closest("[role=\"slider\"], [data-ui-value]") || (this.#slider.contains(event.target) ? this.#slider : null);
-			if (!target || !this.#container.contains(target)) return;
-			event.preventDefault();
-			const vertical = this.options.orientation === "vertical";
-			const coordinate = vertical ? event.clientY : event.clientX;
-			const handleIndex = this.#handles.indexOf(target);
-			this.#active = handleIndex < 0 ? this.#handles.reduce((closest, handle, index) => {
-				const rect = handle.getBoundingClientRect();
-				const previous = this.#handles[closest].getBoundingClientRect();
-				const center = vertical ? rect.top + rect.height / 2 : rect.left + rect.width / 2;
-				const previousCenter = vertical ? previous.top + previous.height / 2 : previous.left + previous.width / 2;
-				return Math.abs(coordinate - center) < Math.abs(coordinate - previousCenter) ? index : closest;
-			}, 0) : handleIndex;
-			_fr0st_query.default.focus(this.#handles[this.#active]);
-			if (!this.node || _fr0st_query.default.is(this.node, ":disabled") || _fr0st_query.default.getProperty(this.node, "readOnly")) return;
-			const window = this.node.ownerDocument.defaultView;
-			this.#drag = {
-				id: event.pointerId,
-				values: [...this.#values],
-				x: event.clientX,
-				y: event.clientY,
-				moved: false,
-				tick: _fr0st_query.default.hasAttribute(target, "data-ui-value") ? Number(_fr0st_query.default.getDataset(target, "uiValue")) : null
-			};
-			this.#dragController = new window.AbortController();
-			const options = { signal: this.#dragController.signal };
-			window.addEventListener("pointermove", (event) => this.#move(event), options);
-			window.addEventListener("pointerup", (event) => this.#up(event), options);
-			window.addEventListener("pointercancel", (event) => {
-				if (event.pointerId === this.#drag?.id) this.#cancelDrag();
-			}, options);
-			window.addEventListener("blur", () => this.#cancelDrag(), options);
-			this.#tooltipTriggers.add("drag");
-			this.#applyValue(this.#pointerValue(event), false);
-			if (this.node && this.#drag) _fr0st_query.default.triggerEvent(this.node, "slide.ui.slider");
-		}
-		/**
-		* Attaches native input, form, focus, keyboard, and pointer handlers.
+		* Attaches input, form, focus, keyboard, mouse, and touch handlers.
 		*/
 		#events() {
-			const window = this.node.ownerDocument.defaultView;
-			this.#eventController = new window.AbortController();
-			const options = { signal: this.#eventController.signal };
-			this.node.addEventListener("focus", () => _fr0st_query.default.focus(this.#handles[0]), options);
-			const synchronize = () => {
+			_fr0st_query.default.addEvent(this.node, "focus.ui.slider", () => {
+				_fr0st_query.default.focus(this.#handles[0]);
+			});
+			this.#synchronize = () => {
 				if (!this.#syncing && this.node) {
-					this.#cancelDrag();
-					this.#readInput(false);
+					this.#drag = null;
+					this.#tooltipTriggers.delete("drag");
+					this.#refresh(false);
 					if (this.node) this.#refreshState();
 				}
 			};
-			this.node.addEventListener("input", synchronize, options);
-			this.node.addEventListener("change", synchronize, options);
-			this.#observer = new window.MutationObserver(() => {
+			_fr0st_query.default.addEvent(this.node, "input.ui.slider change.ui.slider", this.#synchronize);
+			this.#observer = new MutationObserver(() => {
 				if (this.node) this.#refreshState();
 			});
 			this.#observer.observe(this.node, {
@@ -477,100 +398,196 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 				attributes: true,
 				attributeFilter: ["disabled"]
 			});
-			this.node.form?.addEventListener("reset", (event) => {
+			this.#form = _fr0st_query.default.getProperty(this.node, "form");
+			this.#resetHandler = (event) => {
 				const timer = setTimeout(() => {
 					this.#resetTimers.delete(timer);
-					if (this.node && !event.defaultPrevented) synchronize();
+					if (this.node && !event.defaultPrevented) this.#synchronize();
 				}, 0);
 				this.#resetTimers.add(timer);
-			}, options);
-			this.#container.addEventListener("pointerdown", (event) => this.#down(event), options);
-			this.#container.addEventListener("keydown", (event) => this.#key(event), options);
-			this.#container.addEventListener("focusin", (event) => {
+			};
+			if (this.#form) _fr0st_query.default.addEvent(this.#form, "reset.ui.slider", this.#resetHandler);
+			const downEvent = (event) => {
+				if (!this.node || this.#drag || event.type === "mousedown" && event.button !== 0 || _fr0st_query.default.is(this.node, ":disabled") || _fr0st_query.default.getProperty(this.node, "readOnly")) return false;
+				const selector = "[role=\"slider\"], [data-ui-value]";
+				const target = (_fr0st_query.default.is(event.target, selector) ? event.target : _fr0st_query.default.closest(event.target, selector)[0]) || (event.target === this.#slider || _fr0st_query.default.hasDescendent(this.#slider, event.target) ? this.#slider : null);
+				if (!target || !_fr0st_query.default.hasDescendent(this.#container, target)) return false;
+				event.preventDefault();
+				const { x, y } = (0, _fr0st_ui.getPosition)(event);
+				if (!Number.isFinite(x) || !Number.isFinite(y)) return false;
+				const vertical = this.options.orientation === "vertical";
+				const coordinate = vertical ? y : x;
+				let active = this.#handles.indexOf(target);
+				if (active < 0) {
+					let closestDistance = Infinity;
+					for (const [index, handle] of this.#handles.entries()) {
+						const rect = _fr0st_query.default.rect(handle, { offset: true });
+						const center = vertical ? rect.top + rect.height / 2 : rect.left + rect.width / 2;
+						const distance = Math.abs(coordinate - center);
+						if (distance < closestDistance) {
+							closestDistance = distance;
+							active = index;
+						}
+					}
+				}
+				this.#active = active;
+				_fr0st_query.default.focus(this.#handles[this.#active]);
+				if (!this.node || _fr0st_query.default.is(this.node, ":disabled") || _fr0st_query.default.getProperty(this.node, "readOnly")) return false;
+				this.#drag = {
+					values: [...this.#values],
+					x,
+					y,
+					moved: false,
+					tick: _fr0st_query.default.hasAttribute(target, "data-ui-value") ? Number(_fr0st_query.default.getDataset(target, "uiValue")) : null
+				};
+				this.#tooltipTriggers.add("drag");
+				this.#setHandleValue(this.#getEventValue(event), false);
+				if (this.#drag) _fr0st_query.default.triggerEvent(this.node, "slide.ui.slider");
+				if (!this.#drag) return false;
+			};
+			const moveEvent = (event) => {
+				if (!this.#drag) return;
+				if (_fr0st_query.default.is(this.node, ":disabled") || _fr0st_query.default.getProperty(this.node, "readOnly")) {
+					this.#cancelDrag();
+					return;
+				}
+				if (event.cancelable) event.preventDefault();
+				const { x, y } = (0, _fr0st_ui.getPosition)(event);
+				this.#drag.moved ||= x !== this.#drag.x || y !== this.#drag.y;
+				const previous = this.#values.join(",");
+				this.#setHandleValue(this.#getEventValue(event), false);
+				if (this.#drag && previous !== this.#values.join(",")) _fr0st_query.default.triggerEvent(this.node, "sliding.ui.slider", { detail: this.options.range ? {
+					start: this.#values[0],
+					end: this.#values[1]
+				} : this.#values[0] });
+			};
+			const upEvent = (event) => {
+				if (event.type === "touchcancel") {
+					this.#cancelDrag();
+					return;
+				}
+				if (!this.#drag) return;
+				if (_fr0st_query.default.is(this.node, ":disabled") || _fr0st_query.default.getProperty(this.node, "readOnly")) {
+					this.#cancelDrag();
+					return;
+				}
+				const value = this.#getEventValue(event);
+				this.#setHandleValue(value, true);
+				if (!this.#drag) return;
+				this.#drag = null;
+				this.#tooltipTriggers.delete("drag");
+				this.#refreshTooltip();
+				if (this.node) {
+					_fr0st_query.default.focus(this.#handles[this.#active]);
+					if (this.node) _fr0st_query.default.triggerEvent(this.node, "slid.ui.slider", { detail: this.options.range ? {
+						start: this.#values[0],
+						end: this.#values[1]
+					} : this.#values[0] });
+				}
+			};
+			const dragEvent = _fr0st_query.default.mouseDragFactory(downEvent, moveEvent, upEvent, {
+				debounce: false,
+				passive: false,
+				preventDefault: false
+			});
+			_fr0st_query.default.addEvent(this.#container, "mousedown.ui.slider touchstart.ui.slider", dragEvent);
+			this.#blurHandler = () => this.#cancelDrag();
+			_fr0st_query.default.addEvent(window, "blur.ui.slider", this.#blurHandler);
+			_fr0st_query.default.addEvent(this.#container, "keydown.ui.slider", (event) => {
+				if (!this.node || !this.#handles.includes(event.target) || _fr0st_query.default.is(this.node, ":disabled") || _fr0st_query.default.getProperty(this.node, "readOnly")) return;
+				const original = this.#values[this.#active];
+				let value;
+				let direction;
+				switch (event.key) {
+					case "Home":
+						value = this.#min;
+						break;
+					case "End":
+						value = this.#max;
+						break;
+					case "ArrowLeft":
+					case "ArrowRight":
+						direction = event.key === "ArrowRight" ? 1 : -1;
+						if (this.options.orientation !== "vertical" && this.#isReversed()) direction *= -1;
+						break;
+					case "ArrowUp":
+					case "ArrowDown":
+						direction = event.key === "ArrowUp" ? 1 : -1;
+						break;
+					default: return;
+				}
+				event.preventDefault();
+				if (direction) {
+					if (event.ctrlKey || this.options.lockToTicks) {
+						const ticks = direction > 0 ? this.#ticks : this.#ticks.slice().reverse();
+						value = ticks.find((tick) => direction * (tick.value - original) > 0)?.value;
+						value ??= direction > 0 ? this.#max : this.#min;
+						if (!ticks.length && !event.ctrlKey) value = original + direction * this.#step;
+					} else value = original + direction * this.#step;
+				}
+				this.#setHandleValue(this.#normalizeValue(value), true);
+			});
+			_fr0st_query.default.addEvent(this.#container, "focusin.ui.slider", (event) => {
 				const active = this.#handles.indexOf(event.target);
 				if (active >= 0) {
 					this.#active = active;
 					this.#tooltipTriggers.add("focus");
 					this.#refreshTooltip();
 				}
-			}, options);
-			this.#container.addEventListener("focusout", (event) => {
-				if (!this.#container.contains(event.relatedTarget)) {
+			});
+			_fr0st_query.default.addEvent(this.#container, "focusout.ui.slider", (event) => {
+				if (!event.relatedTarget || !_fr0st_query.default.hasDescendent(this.#container, event.relatedTarget)) {
 					this.#tooltipTriggers.delete("focus");
 					this.#refreshTooltip();
 				}
-			}, options);
-			this.#container.addEventListener("pointerenter", (event) => {
-				if (event.pointerType !== "touch") {
-					this.#tooltipTriggers.add("hover");
-					this.#refreshTooltip();
-				}
-			}, options);
-			this.#container.addEventListener("pointerleave", () => {
+			});
+			_fr0st_query.default.addEvent(this.#container, "mouseenter.ui.slider", () => {
+				this.#tooltipTriggers.add("hover");
+				this.#refreshTooltip();
+			});
+			_fr0st_query.default.addEvent(this.#container, "mouseleave.ui.slider", () => {
 				this.#tooltipTriggers.delete("hover");
 				this.#refreshTooltip();
-			}, options);
+			});
+		}
+		/**
+		* Resolves a pointer or tick click to a normalized value.
+		* @param {MouseEvent|TouchEvent} event The input event, including release coordinates.
+		* @returns {number} The normalized value.
+		*/
+		#getEventValue(event) {
+			const touch = event.type === "touchend" ? event.changedTouches?.[0] : null;
+			const { x, y } = touch ? {
+				x: touch.pageX,
+				y: touch.pageY
+			} : (0, _fr0st_ui.getPosition)(event);
+			if (!Number.isFinite(x) || !Number.isFinite(y)) return this.#values[this.#active];
+			if (this.#drag.tick !== null && !this.#drag.moved && x === this.#drag.x && y === this.#drag.y) return this.#normalizeValue(this.#drag.tick, true);
+			const rect = _fr0st_query.default.rect(this.#slider, { offset: true });
+			const vertical = this.options.orientation === "vertical";
+			const length = vertical ? rect.height : rect.width;
+			if (!length) return this.#values[this.#active];
+			let percent = 100 * ((vertical ? y - rect.top : x - rect.left) / length);
+			if (this.#isReversed()) percent = 100 - percent;
+			const value = getValue(percent, this.#min, this.#max, this.options.scale === "logarithmic");
+			return this.#normalizeValue(value, true);
+		}
+		/**
+		* Converts a value to its physical track percentage.
+		* @param {number} value The bounded value.
+		* @returns {number} The physical percentage.
+		*/
+		#getPercent(value) {
+			const percent = getPercent(value, this.#min, this.#max, this.options.scale === "logarithmic");
+			return this.#isReversed() ? 100 - percent : percent;
 		}
 		/**
 		* Checks the effective physical reversal, including horizontal RTL.
 		* @returns {boolean} Whether percentages run backwards on screen.
 		*/
 		#isReversed() {
-			const rtl = this.options.orientation === "horizontal" && _fr0st_query.default.css(this.#container, "direction") === "rtl";
+			const rtl = this.options.orientation !== "vertical" && _fr0st_query.default.css(this.#container, "direction") === "rtl";
 			return Boolean(this.options.reversed) !== rtl;
-		}
-		/**
-		* Handles arrows, tick navigation, and endpoints.
-		* @param {KeyboardEvent} event The keyboard event.
-		*/
-		#key(event) {
-			if (!this.node || !this.#handles.includes(event.target) || _fr0st_query.default.is(this.node, ":disabled") || _fr0st_query.default.getProperty(this.node, "readOnly")) return;
-			const original = this.#values[this.#active];
-			let value;
-			let direction;
-			switch (event.key) {
-				case "Home":
-					value = this.options.min;
-					break;
-				case "End":
-					value = this.options.max;
-					break;
-				case "ArrowLeft":
-				case "ArrowRight":
-					direction = event.key === "ArrowRight" ? 1 : -1;
-					if (this.options.orientation === "horizontal" && this.#isReversed()) direction *= -1;
-					break;
-				case "ArrowUp":
-				case "ArrowDown":
-					direction = event.key === "ArrowUp" ? 1 : -1;
-					break;
-				default: return;
-			}
-			event.preventDefault();
-			if (direction) {
-				if (event.ctrlKey || this.options.lockToTicks) {
-					const ticks = direction > 0 ? this.#ticks : this.#ticks.slice().reverse();
-					value = ticks.find((tick) => direction * (tick.value - original) > 0)?.value;
-					value ??= direction > 0 ? this.options.max : this.options.min;
-					if (!ticks.length && !event.ctrlKey) value = original + direction * this.options.step;
-				} else value = original + direction * this.options.step;
-			}
-			this.#applyValue(this.#normalize(value), true);
-		}
-		/**
-		* Updates a pointer preview, emitting sliding only for a changed value.
-		* @param {PointerEvent} event The move event.
-		*/
-		#move(event) {
-			if (!this.#drag || event.pointerId !== this.#drag.id) return;
-			if (_fr0st_query.default.is(this.node, ":disabled") || _fr0st_query.default.getProperty(this.node, "readOnly")) {
-				this.#cancelDrag();
-				return;
-			}
-			this.#drag.moved ||= event.clientX !== this.#drag.x || event.clientY !== this.#drag.y;
-			const previous = this.#values.join(",");
-			this.#applyValue(this.#pointerValue(event), false);
-			if (this.node && this.#drag && previous !== this.#values.join(",")) _fr0st_query.default.triggerEvent(this.node, "sliding.ui.slider", { detail: this.#detail() });
 		}
 		/**
 		* Normalizes a value and optionally snaps to the nearest usable tick.
@@ -578,8 +595,13 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 		* @param {boolean} [snap=false] Whether proximity snapping is enabled.
 		* @returns {number} The normalized value.
 		*/
-		#normalize(value, snap = false) {
-			const { min, max, step, defaultValue, lockToTicks, tickSnapBounds } = this.options;
+		#normalizeValue(value, snap = false) {
+			const { lockToTicks } = this.options;
+			const min = this.#min;
+			const max = this.#max;
+			const step = this.#step;
+			const defaultValue = this.#defaultValue;
+			const tickSnapBounds = this.#tickSnapBounds;
 			const raw = Math.max(min, Math.min(max, parseNumber(value, defaultValue)));
 			if (this.#ticks.length && (lockToTicks || snap)) {
 				const closest = this.#ticks.reduce((best, tick) => Math.abs(tick.value - raw) < Math.abs(best.value - raw) ? tick : best);
@@ -588,77 +610,12 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 			return clampValue(raw, min, max, step, defaultValue);
 		}
 		/**
-		* Copies, filters, and sorts ticks while preserving their original labels.
-		*/
-		#normalizeTicks() {
-			const { min, max, ticks, tickLabels, rangeHighlights } = this.options;
-			const seen = /* @__PURE__ */ new Set();
-			for (const [index, input] of (Array.isArray(ticks) ? ticks : []).entries()) {
-				const value = parseNumber(input, NaN);
-				if (!Number.isFinite(value) || value < min || value > max || seen.has(value)) continue;
-				seen.add(value);
-				this.#ticks.push({
-					value,
-					label: tickLabels?.[index],
-					node: null
-				});
-			}
-			this.#ticks.sort((a, b) => a.value - b.value);
-			for (const range of Array.isArray(rangeHighlights) ? rangeHighlights : []) {
-				const start = parseNumber(range?.start, NaN);
-				const end = parseNumber(range?.end, NaN);
-				if (Number.isFinite(start) && Number.isFinite(end)) this.#highlights.push({
-					start: Math.max(min, Math.min(max, Math.min(start, end))),
-					end: Math.max(min, Math.min(max, Math.max(start, end))),
-					style: range.style
-				});
-			}
-		}
-		/**
-		* Converts a value to its physical track percentage.
-		* @param {number} value The bounded value.
-		* @returns {number} The physical percentage.
-		*/
-		#percent(value) {
-			const percent = getPercent(value, this.options.min, this.options.max, this.options.scale === "logarithmic");
-			return this.#isReversed() ? 100 - percent : percent;
-		}
-		/**
-		* Resolves a pointer or tick click to a normalized value.
-		* @param {PointerEvent} event The pointer event, including release coordinates.
-		* @returns {number} The normalized value.
-		*/
-		#pointerValue(event) {
-			if (this.#drag.tick !== null && !this.#drag.moved && event.clientX === this.#drag.x && event.clientY === this.#drag.y) return this.#normalize(this.#drag.tick, true);
-			const rect = this.#slider.getBoundingClientRect();
-			const vertical = this.options.orientation === "vertical";
-			const length = vertical ? rect.height : rect.width;
-			if (!length) return this.#values[this.#active];
-			let percent = 100 * ((vertical ? event.clientY - rect.top : event.clientX - rect.left) / length);
-			if (this.#isReversed()) percent = 100 - percent;
-			return this.#normalize(getValue(percent, this.options.min, this.options.max, this.options.scale === "logarithmic"), true);
-		}
-		/**
-		* Positions a colored interval with the same physical coordinates as handles.
-		* @param {HTMLElement} bar The interval element.
-		* @param {number} start The first value.
-		* @param {number} end The last value.
-		*/
-		#positionBar(bar, start, end) {
-			const a = this.#percent(start);
-			const b = this.#percent(end);
-			const vertical = this.options.orientation === "vertical";
-			_fr0st_query.default.setStyle(bar, {
-				[vertical ? "top" : "left"]: `${Math.min(a, b)}%`,
-				[vertical ? "height" : "width"]: `${Math.abs(b - a)}%`
-			});
-		}
-		/**
 		* Reads native values after initialization, native events, or a form reset.
 		* @param {boolean} [emit=true] Whether normalization should emit change.
 		*/
-		#readInput(emit = true) {
-			const values = this.options.range ? _fr0st_query.default.getValue(this.node).split(this.options.rangeSeparator, 2) : [_fr0st_query.default.getValue(this.node)];
+		#refresh(emit = true) {
+			const value = _fr0st_query.default.getValue(this.node);
+			const values = this.options.range ? value.split(this.#rangeSeparator, 2) : [value];
 			this.#setValues(this.options.range ? [values[0], values[1]] : values, { emit });
 		}
 		/**
@@ -671,7 +628,7 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 				this.#cancelDrag();
 				if (!this.node) return;
 			}
-			_fr0st_query.default.setStyle(this.#container, { opacity: disabled ? this.options.disabledOpacity : "" });
+			_fr0st_query.default.setStyle(this.#container, { opacity: disabled ? this.#disabledOpacity : "" });
 			for (const handle of this.#handles) {
 				_fr0st_query.default.setProperty(handle, { disabled });
 				_fr0st_query.default.setAttribute(handle, {
@@ -705,8 +662,8 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 			this.#container = _fr0st_query.default.create("div", {
 				class: this.constructor.classes.container,
 				style: {
-					width: vertical ? `${this.options.sliderSize}px` : "100%",
-					height: vertical ? `${this.options.verticalHeight}px` : `${this.options.sliderSize}px`,
+					width: vertical ? `${this.#sliderSize}px` : "100%",
+					height: vertical ? `${this.#verticalHeight}px` : `${this.#sliderSize}px`,
 					touchAction: "none"
 				}
 			});
@@ -726,39 +683,67 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 			this.#barHigh = this.#renderBar(this.options.high);
 			for (const range of this.#highlights) {
 				const bar = this.#renderBar(range.style);
-				this.#positionBar(bar, range.start, range.end);
+				this.#setBarPosition(bar, range.start, range.end);
 			}
-			this.#renderTicks();
+			for (const tick of this.#ticks) {
+				tick.node = _fr0st_query.default.create("div", {
+					class: this.constructor.classes.tick,
+					dataset: { uiValue: tick.value },
+					style: {
+						width: `${this.#tickSize}px`,
+						height: `${this.#tickSize}px`,
+						[vertical ? "left" : "top"]: "50%",
+						[vertical ? "top" : "left"]: `${this.#getPercent(tick.value)}%`,
+						transform: "translate(-50%, -50%)"
+					}
+				});
+				_fr0st_query.default.append(this.#container, tick.node);
+				if (tick.label !== null && tick.label !== void 0 && tick.label !== "") {
+					const label = _fr0st_query.default.create("small", {
+						class: this.constructor.classes.tickLabel,
+						text: `${tick.label}`,
+						style: {
+							[vertical ? "left" : "top"]: `${(this.#sliderSize + this.#tickSize) / 2}px`,
+							[vertical ? "top" : "left"]: `${this.#getPercent(tick.value)}%`,
+							transform: vertical ? "translateY(-50%)" : "translateX(-50%)"
+						}
+					});
+					_fr0st_query.default.append(this.#container, label);
+				}
+			}
 			for (let index = 0; index < (this.options.range ? 2 : 1); index++) {
 				const handle = _fr0st_query.default.create("button", {
 					class: this.constructor.classes.handle,
 					attributes: {
 						"type": "button",
 						"role": "slider",
-						"aria-orientation": this.options.orientation,
-						"aria-valuemin": this.options.min,
-						"aria-valuemax": this.options.max
+						"aria-orientation": vertical ? "vertical" : "horizontal",
+						"aria-valuemin": this.#min,
+						"aria-valuemax": this.#max
 					},
 					style: {
-						width: `${this.options.handleSize * (vertical ? 1 : this.options.handleSizeRatio)}px`,
-						height: `${this.options.handleSize * (vertical ? this.options.handleSizeRatio : 1)}px`,
+						width: `${this.#handleSize * (vertical ? 1 : this.#handleSizeRatio)}px`,
+						height: `${this.#handleSize * (vertical ? this.#handleSizeRatio : 1)}px`,
 						[vertical ? "left" : "top"]: "50%",
 						transform: "translate(-50%, -50%)"
 					}
 				});
 				const labelledBy = _fr0st_query.default.getAttribute(this.node, "aria-labelledby");
 				const explicit = _fr0st_query.default.getAttribute(this.node, "aria-label");
-				const label = labelledBy ? labelledBy.split(/\s+/).map((id) => _fr0st_query.default.getText(_fr0st_query.default.findOneById(id, this.node.ownerDocument))?.trim() || "").join(" ") : explicit || this.#label;
+				const label = labelledBy ? labelledBy.split(/\s+/).map((id) => _fr0st_query.default.getText(_fr0st_query.default.findOneById(id, _fr0st_query.default.getProperty(this.node, "ownerDocument")))?.trim() || "").join(" ") : explicit || this.#label;
 				if (!this.options.range && labelledBy) _fr0st_query.default.setAttribute(handle, { "aria-labelledby": labelledBy });
-				else _fr0st_query.default.setAttribute(handle, { "aria-label": this.options.range ? `${label || "Range"} ${index ? "end" : "start"}` : label || "Value" });
+				else {
+					const ariaLabel = this.options.range ? `${label || "Range"} ${index ? "end" : "start"}` : label || "Value";
+					_fr0st_query.default.setAttribute(handle, { "aria-label": ariaLabel });
+				}
 				_fr0st_query.default.append(this.#container, handle);
 				this.#handles.push(handle);
 			}
 			if (this.options.tooltip) this.#tooltip = _fr0st_ui.Tooltip.init(this.options.range ? this.#barSelection : this.#handles[0], {
-				appendTo: this.node.ownerDocument.body,
+				appendTo: _fr0st_query.default.findOne("body"),
 				trigger: "",
 				placement: this.options.tooltipPlacement || (vertical ? "right" : "top"),
-				spacing: this.options.range ? (this.options.handleSize - this.options.sliderSize) / 2 : 0
+				spacing: this.options.range ? (this.#handleSize - this.#sliderSize) / 2 : 0
 			});
 			_fr0st_query.default.addClass(this.node, this.constructor.classes.hide);
 			_fr0st_query.default.setAttribute(this.node, {
@@ -785,36 +770,46 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 			return bar;
 		}
 		/**
-		* Renders normalized ticks and matching labels at physical track positions.
+		* Positions a colored interval with the same physical coordinates as handles.
+		* @param {HTMLElement} bar The interval element.
+		* @param {number} start The first value.
+		* @param {number} end The last value.
 		*/
-		#renderTicks() {
+		#setBarPosition(bar, start, end) {
+			const a = this.#getPercent(start);
+			const b = this.#getPercent(end);
 			const vertical = this.options.orientation === "vertical";
-			for (const tick of this.#ticks) {
-				tick.node = _fr0st_query.default.create("div", {
-					class: this.constructor.classes.tick,
-					dataset: { uiValue: tick.value },
-					style: {
-						width: `${this.options.tickSize}px`,
-						height: `${this.options.tickSize}px`,
-						[vertical ? "left" : "top"]: "50%",
-						[vertical ? "top" : "left"]: `${this.#percent(tick.value)}%`,
-						transform: "translate(-50%, -50%)"
-					}
-				});
-				_fr0st_query.default.append(this.#container, tick.node);
-				if (tick.label !== null && tick.label !== void 0 && tick.label !== "") {
-					const label = _fr0st_query.default.create("small", {
-						class: this.constructor.classes.tickLabel,
-						text: `${tick.label}`,
-						style: {
-							[vertical ? "left" : "top"]: `${(this.options.sliderSize + this.options.tickSize) / 2}px`,
-							[vertical ? "top" : "left"]: `${this.#percent(tick.value)}%`,
-							transform: vertical ? "translateY(-50%)" : "translateX(-50%)"
-						}
-					});
-					_fr0st_query.default.append(this.#container, label);
+			_fr0st_query.default.setStyle(bar, {
+				[vertical ? "top" : "left"]: `${Math.min(a, b)}%`,
+				[vertical ? "height" : "width"]: `${Math.abs(b - a)}%`
+			});
+		}
+		/**
+		* Moves the active handle, handing focus to the other handle when crossing.
+		* @param {number} value The normalized value.
+		* @param {boolean} commit Whether to update the native input.
+		*/
+		#setHandleValue(value, commit) {
+			const values = [...this.#values];
+			let active = this.#active;
+			if (this.options.range) {
+				if (value < values[0]) active = 0;
+				else if (value > values[1]) active = 1;
+			}
+			values[active] = value;
+			if (this.#active !== active) {
+				this.#active = active;
+				_fr0st_query.default.focus(this.#handles[active]);
+				if (!this.node) return;
+				if (_fr0st_query.default.is(this.node, ":disabled") || _fr0st_query.default.getProperty(this.node, "readOnly")) {
+					this.#refreshState();
+					return;
 				}
 			}
+			this.#setValues(values, {
+				commit,
+				normalized: true
+			});
 		}
 		/**
 		* Renders normalized values and optionally commits them to the original input.
@@ -825,24 +820,24 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 		* @param {boolean} [options.normalized=false] Whether values were already normalized.
 		*/
 		#setValues(values, { commit = true, emit = true, normalized = false } = {}) {
-			this.#values = values.map((value) => normalized ? value : this.#normalize(value)).sort((a, b) => a - b);
-			const start = this.options.range ? this.#values[0] : this.options.min;
+			this.#values = values.map((value) => normalized ? value : this.#normalizeValue(value)).sort((a, b) => a - b);
+			const start = this.options.range ? this.#values[0] : this.#min;
 			const end = this.#values[this.#values.length - 1];
-			this.#positionBar(this.#barLow, this.options.min, start);
-			this.#positionBar(this.#barSelection, start, end);
-			this.#positionBar(this.#barHigh, end, this.options.max);
+			this.#setBarPosition(this.#barLow, this.#min, start);
+			this.#setBarPosition(this.#barSelection, start, end);
+			this.#setBarPosition(this.#barHigh, end, this.#max);
 			for (const [index, value] of this.#values.entries()) {
-				const text = this.options.valueText.call(this, value);
+				const text = (typeof this.options.valueText === "function" ? this.options.valueText : this.constructor.defaults.valueText).call(this, value);
 				if (!this.node) return;
 				_fr0st_query.default.setAttribute(this.#handles[index], {
 					"aria-valuenow": value,
 					"aria-valuetext": `${text}`
 				});
-				_fr0st_query.default.setStyle(this.#handles[index], { [this.options.orientation === "vertical" ? "top" : "left"]: `${this.#percent(value)}%` });
+				_fr0st_query.default.setStyle(this.#handles[index], { [this.options.orientation === "vertical" ? "top" : "left"]: `${this.#getPercent(value)}%` });
 				if (!this.options.range) _fr0st_query.default.setDataset(this.#handles[index], { uiTitle: text });
 			}
 			if (this.options.range && this.#tooltip) {
-				const text = this.options.rangeText.call(this, ...this.#values);
+				const text = (typeof this.options.rangeText === "function" ? this.options.rangeText : this.constructor.defaults.rangeText).call(this, ...this.#values);
 				if (!this.node) return;
 				_fr0st_query.default.setDataset(this.#barSelection, { uiTitle: text });
 			}
@@ -852,35 +847,25 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 				let style = tick.value < start ? this.options.low : this.options.high;
 				if (selected) style = this.options.selection;
 				if (highlight) style = highlight.style;
-				tick.node.className = this.constructor.classes.tick;
+				_fr0st_query.default.setAttribute(tick.node, "class", this.constructor.classes.tick);
 				if (selected) _fr0st_query.default.addClass(tick.node, this.constructor.classes.tickFilled);
 				if (style) _fr0st_query.default.addClass(tick.node, style);
 			}
 			this.#tooltip?.refresh();
 			this.#refreshTooltip();
-			if (this.node && commit) this.#commit(emit);
-		}
-		/**
-		* Commits the final pointer position, removes gesture listeners, and emits slid.
-		* @param {PointerEvent} event The release event.
-		*/
-		#up(event) {
-			if (!this.#drag || event.pointerId !== this.#drag.id) return;
-			if (_fr0st_query.default.is(this.node, ":disabled") || _fr0st_query.default.getProperty(this.node, "readOnly")) {
-				this.#cancelDrag();
-				return;
-			}
-			const value = this.#pointerValue(event);
-			this.#dragController.abort();
-			this.#dragController = null;
-			this.#applyValue(value, true);
-			if (!this.node || !this.#drag) return;
-			this.#drag = null;
-			this.#tooltipTriggers.delete("drag");
-			this.#refreshTooltip();
-			if (this.node) {
-				_fr0st_query.default.focus(this.#handles[this.#active]);
-				if (this.node) _fr0st_query.default.triggerEvent(this.node, "slid.ui.slider", { detail: this.#detail() });
+			if (this.node && commit) {
+				if (this.#drag) this.#drag.values = [...this.#values];
+				const value = this.#values.join(this.#rangeSeparator);
+				if (value === _fr0st_query.default.getValue(this.node)) return;
+				_fr0st_query.default.setValue(this.node, value);
+				if (emit) {
+					this.#syncing = true;
+					try {
+						_fr0st_query.default.triggerEvent(this.node, "change.ui.slider");
+					} finally {
+						this.#syncing = false;
+					}
+				}
 			}
 		}
 	};
