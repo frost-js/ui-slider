@@ -200,28 +200,6 @@ test.describe('Slider', () => {
     });
 
     test.describe('#dispose', () => {
-        for (const ariaHidden of [null, 'false', 'true']) {
-            test(`restores original aria-hidden ${ariaHidden ?? 'absence'} after disposal`, async ({ page }) => {
-                await page.evaluate((ariaHidden) => {
-                    const node = $.findOne('#slider');
-                    if (ariaHidden !== null) {
-                        $.setAttribute(node, 'aria-hidden', ariaHidden);
-                    }
-                    UI.Slider.init(node, { tooltip: false });
-                }, ariaHidden);
-
-                const input = page.locator('#slider');
-                await expect(input).toHaveAttribute('aria-hidden', 'true');
-                await page.evaluate(() => $.getData('#slider', 'slider').dispose());
-
-                if (ariaHidden === null) {
-                    await expect(input).not.toHaveAttribute('aria-hidden');
-                } else {
-                    await expect(input).toHaveAttribute('aria-hidden', ariaHidden);
-                }
-            });
-        }
-
         for (const { name, dispose } of [
             { name: 'class', dispose: (instance) => instance.dispose() },
             { name: 'QuerySet', dispose: () => $('#slider').slider('dispose') },
@@ -260,26 +238,27 @@ test.describe('Slider', () => {
             await expect(page.locator('#slider')).not.toHaveAttribute('tabindex');
         });
 
-        test('disposes when fQuery removes the original input', async ({ page }) => {
-            await page.evaluate(() => {
-                UI.Slider.init($.findOne('#slider'), { tooltip: 'always' });
-                $.remove('#slider');
+        for (const ariaHidden of [null, 'false', 'true']) {
+            test(`restores original aria-hidden ${ariaHidden ?? 'absence'} after disposal`, async ({ page }) => {
+                await page.evaluate((ariaHidden) => {
+                    const node = $.findOne('#slider');
+                    if (ariaHidden !== null) {
+                        $.setAttribute(node, 'aria-hidden', ariaHidden);
+                    }
+                    UI.Slider.init(node, { tooltip: false });
+                }, ariaHidden);
+
+                const input = page.locator('#slider');
+                await expect(input).toHaveAttribute('aria-hidden', 'true');
+                await page.evaluate(() => $.getData('#slider', 'slider').dispose());
+
+                if (ariaHidden === null) {
+                    await expect(input).not.toHaveAttribute('aria-hidden');
+                } else {
+                    await expect(input).toHaveAttribute('aria-hidden', ariaHidden);
+                }
             });
-
-            await expect(page.getByRole('slider')).toHaveCount(0);
-            await expect(page.getByRole('tooltip')).toHaveCount(0);
-        });
-
-        test('allows reinitialization after disposal', async ({ page }) => {
-            await page.evaluate(() => {
-                const node = $.findOne('#slider');
-                UI.Slider.init(node).dispose();
-                UI.Slider.init(node).setValue(8);
-            });
-
-            await expect(page.getByRole('slider')).toHaveCount(1);
-            await expect(page.getByRole('slider')).toHaveAttribute('aria-valuenow', '8');
-        });
+        }
 
         test('preserves other instances and consumer change listeners', async ({ page }) => {
             await page.evaluate(() => {
@@ -294,6 +273,27 @@ test.describe('Slider', () => {
             expect(await page.evaluate(() => window.changes)).toBe(1);
             await expect(page.getByRole('slider')).toHaveCount(1);
             await expect(page.getByRole('slider')).toHaveAttribute('aria-valuenow', '9');
+        });
+
+        test('allows reinitialization after disposal', async ({ page }) => {
+            await page.evaluate(() => {
+                const node = $.findOne('#slider');
+                UI.Slider.init(node).dispose();
+                UI.Slider.init(node).setValue(8);
+            });
+
+            await expect(page.getByRole('slider')).toHaveCount(1);
+            await expect(page.getByRole('slider')).toHaveAttribute('aria-valuenow', '8');
+        });
+
+        test('disposes when fQuery removes the original input', async ({ page }) => {
+            await page.evaluate(() => {
+                UI.Slider.init($.findOne('#slider'), { tooltip: 'always' });
+                $.remove('#slider');
+            });
+
+            await expect(page.getByRole('slider')).toHaveCount(0);
+            await expect(page.getByRole('tooltip')).toHaveCount(0);
         });
     });
 
