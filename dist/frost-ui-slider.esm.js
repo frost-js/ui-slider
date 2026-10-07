@@ -159,7 +159,6 @@ var Slider = class extends BaseComponent {
 	#barHigh = null;
 	#barLow = null;
 	#barSelection = null;
-	#blurHandler = null;
 	#container = null;
 	#defaultValue;
 	#disabledOpacity;
@@ -175,7 +174,6 @@ var Slider = class extends BaseComponent {
 	#min;
 	#observer = null;
 	#rangeSeparator;
-	#resetHandler = null;
 	#resetTimers = /* @__PURE__ */ new Set();
 	#slider = null;
 	#sliderSize;
@@ -264,10 +262,6 @@ var Slider = class extends BaseComponent {
 	/** @inheritdoc */
 	dispose() {
 		if (!this.node) return;
-		if (this.#blurHandler) $.removeEvent(window, "blur.ui.slider", this.#blurHandler);
-		$.removeEvent(this.node, "focus.ui.slider");
-		if (this.#synchronizeHandler) $.removeEvent(this.node, "input.ui.slider change.ui.slider", this.#synchronizeHandler);
-		if (this.#form && this.#resetHandler) $.removeEvent(this.#form, "reset.ui.slider", this.#resetHandler);
 		this.#observer?.disconnect();
 		for (const timer of this.#resetTimers) clearTimeout(timer);
 		this.#resetTimers.clear();
@@ -286,10 +280,8 @@ var Slider = class extends BaseComponent {
 		this.#barHigh = null;
 		this.#barLow = null;
 		this.#barSelection = null;
-		this.#blurHandler = null;
 		this.#container = null;
 		this.#form = null;
-		this.#resetHandler = null;
 		this.#synchronizeHandler = null;
 		this.#handles = [];
 		this.#highlights = [];
@@ -338,7 +330,7 @@ var Slider = class extends BaseComponent {
 	* Attaches input, form, focus, keyboard, mouse, and touch handlers.
 	*/
 	#events() {
-		$.addEvent(this.node, "focus.ui.slider", () => {
+		this.listen(this.node, "focus.ui.slider", () => {
 			$.focus(this.#handles[0]);
 		});
 		this.#synchronizeHandler = (event) => {
@@ -349,7 +341,7 @@ var Slider = class extends BaseComponent {
 				if (this.node) this.#refreshState();
 			}
 		};
-		$.addEvent(this.node, "input.ui.slider change.ui.slider", this.#synchronizeHandler);
+		this.listen(this.node, "input.ui.slider change.ui.slider", this.#synchronizeHandler);
 		this.#observer = new MutationObserver(() => {
 			if (this.node) this.#refreshState();
 		});
@@ -367,14 +359,13 @@ var Slider = class extends BaseComponent {
 			attributeFilter: ["disabled"]
 		});
 		this.#form = $.getProperty(this.node, "form");
-		this.#resetHandler = (event) => {
+		if (this.#form) this.listen(this.#form, "reset.ui.slider", (event) => {
 			const timer = setTimeout(() => {
 				this.#resetTimers.delete(timer);
 				if (this.node && !event.defaultPrevented) this.#synchronizeHandler();
 			}, 0);
 			this.#resetTimers.add(timer);
-		};
-		if (this.#form) $.addEvent(this.#form, "reset.ui.slider", this.#resetHandler);
+		});
 		const downHandler = (event) => {
 			if (!this.node || this.#drag || event.type === "mousedown" && event.button !== 0 || $.is(this.node, ":disabled") || $.getProperty(this.node, "readOnly")) return false;
 			const selector = "[role=\"slider\"], [data-ui-value]";
@@ -459,8 +450,7 @@ var Slider = class extends BaseComponent {
 			preventDefault: false
 		});
 		$.addEvent(this.#container, "mousedown.ui.slider touchstart.ui.slider", dragHandler);
-		this.#blurHandler = () => this.#cancelDrag();
-		$.addEvent(window, "blur.ui.slider", this.#blurHandler);
+		this.listen(window, "blur.ui.slider", () => this.#cancelDrag());
 		$.addEvent(this.#container, "keydown.ui.slider", (event) => {
 			if (!this.node || !this.#handles.includes(event.target) || $.is(this.node, ":disabled") || $.getProperty(this.node, "readOnly")) return;
 			const original = this.#values[this.#active];

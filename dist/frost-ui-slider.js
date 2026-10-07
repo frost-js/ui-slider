@@ -191,7 +191,6 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 		#barHigh = null;
 		#barLow = null;
 		#barSelection = null;
-		#blurHandler = null;
 		#container = null;
 		#defaultValue;
 		#disabledOpacity;
@@ -207,7 +206,6 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 		#min;
 		#observer = null;
 		#rangeSeparator;
-		#resetHandler = null;
 		#resetTimers = /* @__PURE__ */ new Set();
 		#slider = null;
 		#sliderSize;
@@ -296,10 +294,6 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 		/** @inheritdoc */
 		dispose() {
 			if (!this.node) return;
-			if (this.#blurHandler) _fr0st_query.default.removeEvent(window, "blur.ui.slider", this.#blurHandler);
-			_fr0st_query.default.removeEvent(this.node, "focus.ui.slider");
-			if (this.#synchronizeHandler) _fr0st_query.default.removeEvent(this.node, "input.ui.slider change.ui.slider", this.#synchronizeHandler);
-			if (this.#form && this.#resetHandler) _fr0st_query.default.removeEvent(this.#form, "reset.ui.slider", this.#resetHandler);
 			this.#observer?.disconnect();
 			for (const timer of this.#resetTimers) clearTimeout(timer);
 			this.#resetTimers.clear();
@@ -318,10 +312,8 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 			this.#barHigh = null;
 			this.#barLow = null;
 			this.#barSelection = null;
-			this.#blurHandler = null;
 			this.#container = null;
 			this.#form = null;
-			this.#resetHandler = null;
 			this.#synchronizeHandler = null;
 			this.#handles = [];
 			this.#highlights = [];
@@ -370,7 +362,7 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 		* Attaches input, form, focus, keyboard, mouse, and touch handlers.
 		*/
 		#events() {
-			_fr0st_query.default.addEvent(this.node, "focus.ui.slider", () => {
+			this.listen(this.node, "focus.ui.slider", () => {
 				_fr0st_query.default.focus(this.#handles[0]);
 			});
 			this.#synchronizeHandler = (event) => {
@@ -381,7 +373,7 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 					if (this.node) this.#refreshState();
 				}
 			};
-			_fr0st_query.default.addEvent(this.node, "input.ui.slider change.ui.slider", this.#synchronizeHandler);
+			this.listen(this.node, "input.ui.slider change.ui.slider", this.#synchronizeHandler);
 			this.#observer = new MutationObserver(() => {
 				if (this.node) this.#refreshState();
 			});
@@ -399,14 +391,13 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 				attributeFilter: ["disabled"]
 			});
 			this.#form = _fr0st_query.default.getProperty(this.node, "form");
-			this.#resetHandler = (event) => {
+			if (this.#form) this.listen(this.#form, "reset.ui.slider", (event) => {
 				const timer = setTimeout(() => {
 					this.#resetTimers.delete(timer);
 					if (this.node && !event.defaultPrevented) this.#synchronizeHandler();
 				}, 0);
 				this.#resetTimers.add(timer);
-			};
-			if (this.#form) _fr0st_query.default.addEvent(this.#form, "reset.ui.slider", this.#resetHandler);
+			});
 			const downHandler = (event) => {
 				if (!this.node || this.#drag || event.type === "mousedown" && event.button !== 0 || _fr0st_query.default.is(this.node, ":disabled") || _fr0st_query.default.getProperty(this.node, "readOnly")) return false;
 				const selector = "[role=\"slider\"], [data-ui-value]";
@@ -491,8 +482,7 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 				preventDefault: false
 			});
 			_fr0st_query.default.addEvent(this.#container, "mousedown.ui.slider touchstart.ui.slider", dragHandler);
-			this.#blurHandler = () => this.#cancelDrag();
-			_fr0st_query.default.addEvent(window, "blur.ui.slider", this.#blurHandler);
+			this.listen(window, "blur.ui.slider", () => this.#cancelDrag());
 			_fr0st_query.default.addEvent(this.#container, "keydown.ui.slider", (event) => {
 				if (!this.node || !this.#handles.includes(event.target) || _fr0st_query.default.is(this.node, ":disabled") || _fr0st_query.default.getProperty(this.node, "readOnly")) return;
 				const original = this.#values[this.#active];

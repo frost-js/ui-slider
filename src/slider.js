@@ -100,7 +100,6 @@ export default class Slider extends BaseComponent {
     #barHigh = null;
     #barLow = null;
     #barSelection = null;
-    #blurHandler = null;
     #container = null;
     #defaultValue;
     #disabledOpacity;
@@ -116,7 +115,6 @@ export default class Slider extends BaseComponent {
     #min;
     #observer = null;
     #rangeSeparator;
-    #resetHandler = null;
     #resetTimers = new Set();
     #slider = null;
     #sliderSize;
@@ -244,20 +242,6 @@ export default class Slider extends BaseComponent {
             return;
         }
 
-        if (this.#blurHandler) {
-            $.removeEvent(window, 'blur.ui.slider', this.#blurHandler);
-        }
-
-        $.removeEvent(this.node, 'focus.ui.slider');
-
-        if (this.#synchronizeHandler) {
-            $.removeEvent(this.node, 'input.ui.slider change.ui.slider', this.#synchronizeHandler);
-        }
-
-        if (this.#form && this.#resetHandler) {
-            $.removeEvent(this.#form, 'reset.ui.slider', this.#resetHandler);
-        }
-
         this.#observer?.disconnect();
 
         for (const timer of this.#resetTimers) {
@@ -295,10 +279,8 @@ export default class Slider extends BaseComponent {
         this.#barHigh = null;
         this.#barLow = null;
         this.#barSelection = null;
-        this.#blurHandler = null;
         this.#container = null;
         this.#form = null;
-        this.#resetHandler = null;
         this.#synchronizeHandler = null;
         this.#handles = [];
         this.#highlights = [];
@@ -354,7 +336,7 @@ export default class Slider extends BaseComponent {
      * Attaches input, form, focus, keyboard, mouse, and touch handlers.
      */
     #events() {
-        $.addEvent(this.node, 'focus.ui.slider', () => {
+        this.listen(this.node, 'focus.ui.slider', () => {
             $.focus(this.#handles[0]);
         });
 
@@ -371,7 +353,7 @@ export default class Slider extends BaseComponent {
             }
         };
 
-        $.addEvent(this.node, 'input.ui.slider change.ui.slider', this.#synchronizeHandler);
+        this.listen(this.node, 'input.ui.slider change.ui.slider', this.#synchronizeHandler);
 
         this.#observer = new MutationObserver(() => {
             if (this.node) {
@@ -392,20 +374,19 @@ export default class Slider extends BaseComponent {
         }
 
         this.#form = $.getProperty(this.node, 'form');
-        this.#resetHandler = (event) => {
-            const timer = setTimeout(() => {
-                this.#resetTimers.delete(timer);
-
-                if (this.node && !event.defaultPrevented) {
-                    this.#synchronizeHandler();
-                }
-            }, 0);
-
-            this.#resetTimers.add(timer);
-        };
 
         if (this.#form) {
-            $.addEvent(this.#form, 'reset.ui.slider', this.#resetHandler);
+            this.listen(this.#form, 'reset.ui.slider', (event) => {
+                const timer = setTimeout(() => {
+                    this.#resetTimers.delete(timer);
+
+                    if (this.node && !event.defaultPrevented) {
+                        this.#synchronizeHandler();
+                    }
+                }, 0);
+
+                this.#resetTimers.add(timer);
+            });
         }
 
         const downHandler = (event) => {
@@ -563,8 +544,7 @@ export default class Slider extends BaseComponent {
 
         $.addEvent(this.#container, 'mousedown.ui.slider touchstart.ui.slider', dragHandler);
 
-        this.#blurHandler = () => this.#cancelDrag();
-        $.addEvent(window, 'blur.ui.slider', this.#blurHandler);
+        this.listen(window, 'blur.ui.slider', () => this.#cancelDrag());
 
         $.addEvent(this.#container, 'keydown.ui.slider', (event) => {
             if (
