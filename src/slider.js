@@ -97,15 +97,15 @@ export default class Slider extends BaseComponent {
 
     #active = 0;
     #ariaHidden;
-    #barHigh;
-    #barLow;
-    #barSelection;
-    #blurHandler;
-    #container;
+    #barHigh = null;
+    #barLow = null;
+    #barSelection = null;
+    #blurHandler = null;
+    #container = null;
     #defaultValue;
     #disabledOpacity;
-    #drag;
-    #form;
+    #drag = null;
+    #form = null;
     #handles = [];
     #handleSize;
     #handleSizeRatio;
@@ -114,19 +114,19 @@ export default class Slider extends BaseComponent {
     #label;
     #max;
     #min;
-    #observer;
+    #observer = null;
     #rangeSeparator;
-    #resetHandler;
+    #resetHandler = null;
     #resetTimers = new Set();
-    #slider;
+    #slider = null;
     #sliderSize;
     #step;
-    #synchronize;
+    #synchronizeHandler = null;
     #tabIndex;
     #ticks = [];
     #tickSize;
     #tickSnapBounds;
-    #tooltip;
+    #tooltip = null;
     #tooltipId;
     #tooltipTriggers = new Set();
     #values = [];
@@ -250,8 +250,8 @@ export default class Slider extends BaseComponent {
 
         $.removeEvent(this.node, 'focus.ui.slider');
 
-        if (this.#synchronize) {
-            $.removeEvent(this.node, 'input.ui.slider change.ui.slider', this.#synchronize);
+        if (this.#synchronizeHandler) {
+            $.removeEvent(this.node, 'input.ui.slider change.ui.slider', this.#synchronizeHandler);
         }
 
         if (this.#form && this.#resetHandler) {
@@ -299,7 +299,7 @@ export default class Slider extends BaseComponent {
         this.#container = null;
         this.#form = null;
         this.#resetHandler = null;
-        this.#synchronize = null;
+        this.#synchronizeHandler = null;
         this.#handles = [];
         this.#highlights = [];
         this.#observer = null;
@@ -358,7 +358,7 @@ export default class Slider extends BaseComponent {
             $.focus(this.#handles[0]);
         });
 
-        this.#synchronize = (event) => {
+        this.#synchronizeHandler = (event) => {
             if (!event?.skipUpdate && this.node) {
                 this.#drag = null;
                 this.#tooltipTriggers.delete('drag');
@@ -371,7 +371,7 @@ export default class Slider extends BaseComponent {
             }
         };
 
-        $.addEvent(this.node, 'input.ui.slider change.ui.slider', this.#synchronize);
+        $.addEvent(this.node, 'input.ui.slider change.ui.slider', this.#synchronizeHandler);
 
         this.#observer = new MutationObserver(() => {
             if (this.node) {
@@ -397,7 +397,7 @@ export default class Slider extends BaseComponent {
                 this.#resetTimers.delete(timer);
 
                 if (this.node && !event.defaultPrevented) {
-                    this.#synchronize();
+                    this.#synchronizeHandler();
                 }
             }, 0);
 
@@ -408,7 +408,7 @@ export default class Slider extends BaseComponent {
             $.addEvent(this.#form, 'reset.ui.slider', this.#resetHandler);
         }
 
-        const downEvent = (event) => {
+        const downHandler = (event) => {
             if (
                 !this.node ||
                 this.#drag ||
@@ -484,7 +484,7 @@ export default class Slider extends BaseComponent {
             }
         };
 
-        const moveEvent = (event) => {
+        const moveHandler = (event) => {
             if (!this.#drag) {
                 return;
             }
@@ -514,7 +514,7 @@ export default class Slider extends BaseComponent {
             }
         };
 
-        const upEvent = (event) => {
+        const upHandler = (event) => {
             if (event.type === 'touchcancel') {
                 this.#cancelDrag();
                 return;
@@ -555,13 +555,13 @@ export default class Slider extends BaseComponent {
             }
         };
 
-        const dragEvent = $.mouseDragFactory(downEvent, moveEvent, upEvent, {
+        const dragHandler = $.mouseDragFactory(downHandler, moveHandler, upHandler, {
             debounce: false,
             passive: false,
             preventDefault: false,
         });
 
-        $.addEvent(this.#container, 'mousedown.ui.slider touchstart.ui.slider', dragEvent);
+        $.addEvent(this.#container, 'mousedown.ui.slider touchstart.ui.slider', dragHandler);
 
         this.#blurHandler = () => this.#cancelDrag();
         $.addEvent(window, 'blur.ui.slider', this.#blurHandler);

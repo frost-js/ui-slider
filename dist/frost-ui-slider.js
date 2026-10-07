@@ -188,15 +188,15 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 		};
 		#active = 0;
 		#ariaHidden;
-		#barHigh;
-		#barLow;
-		#barSelection;
-		#blurHandler;
-		#container;
+		#barHigh = null;
+		#barLow = null;
+		#barSelection = null;
+		#blurHandler = null;
+		#container = null;
 		#defaultValue;
 		#disabledOpacity;
-		#drag;
-		#form;
+		#drag = null;
+		#form = null;
 		#handles = [];
 		#handleSize;
 		#handleSizeRatio;
@@ -205,19 +205,19 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 		#label;
 		#max;
 		#min;
-		#observer;
+		#observer = null;
 		#rangeSeparator;
-		#resetHandler;
+		#resetHandler = null;
 		#resetTimers = /* @__PURE__ */ new Set();
-		#slider;
+		#slider = null;
 		#sliderSize;
 		#step;
-		#synchronize;
+		#synchronizeHandler = null;
 		#tabIndex;
 		#ticks = [];
 		#tickSize;
 		#tickSnapBounds;
-		#tooltip;
+		#tooltip = null;
 		#tooltipId;
 		#tooltipTriggers = /* @__PURE__ */ new Set();
 		#values = [];
@@ -298,7 +298,7 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 			if (!this.node) return;
 			if (this.#blurHandler) _fr0st_query.default.removeEvent(window, "blur.ui.slider", this.#blurHandler);
 			_fr0st_query.default.removeEvent(this.node, "focus.ui.slider");
-			if (this.#synchronize) _fr0st_query.default.removeEvent(this.node, "input.ui.slider change.ui.slider", this.#synchronize);
+			if (this.#synchronizeHandler) _fr0st_query.default.removeEvent(this.node, "input.ui.slider change.ui.slider", this.#synchronizeHandler);
 			if (this.#form && this.#resetHandler) _fr0st_query.default.removeEvent(this.#form, "reset.ui.slider", this.#resetHandler);
 			this.#observer?.disconnect();
 			for (const timer of this.#resetTimers) clearTimeout(timer);
@@ -322,7 +322,7 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 			this.#container = null;
 			this.#form = null;
 			this.#resetHandler = null;
-			this.#synchronize = null;
+			this.#synchronizeHandler = null;
 			this.#handles = [];
 			this.#highlights = [];
 			this.#observer = null;
@@ -373,7 +373,7 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 			_fr0st_query.default.addEvent(this.node, "focus.ui.slider", () => {
 				_fr0st_query.default.focus(this.#handles[0]);
 			});
-			this.#synchronize = (event) => {
+			this.#synchronizeHandler = (event) => {
 				if (!event?.skipUpdate && this.node) {
 					this.#drag = null;
 					this.#tooltipTriggers.delete("drag");
@@ -381,7 +381,7 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 					if (this.node) this.#refreshState();
 				}
 			};
-			_fr0st_query.default.addEvent(this.node, "input.ui.slider change.ui.slider", this.#synchronize);
+			_fr0st_query.default.addEvent(this.node, "input.ui.slider change.ui.slider", this.#synchronizeHandler);
 			this.#observer = new MutationObserver(() => {
 				if (this.node) this.#refreshState();
 			});
@@ -402,12 +402,12 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 			this.#resetHandler = (event) => {
 				const timer = setTimeout(() => {
 					this.#resetTimers.delete(timer);
-					if (this.node && !event.defaultPrevented) this.#synchronize();
+					if (this.node && !event.defaultPrevented) this.#synchronizeHandler();
 				}, 0);
 				this.#resetTimers.add(timer);
 			};
 			if (this.#form) _fr0st_query.default.addEvent(this.#form, "reset.ui.slider", this.#resetHandler);
-			const downEvent = (event) => {
+			const downHandler = (event) => {
 				if (!this.node || this.#drag || event.type === "mousedown" && event.button !== 0 || _fr0st_query.default.is(this.node, ":disabled") || _fr0st_query.default.getProperty(this.node, "readOnly")) return false;
 				const selector = "[role=\"slider\"], [data-ui-value]";
 				const target = (_fr0st_query.default.is(event.target, selector) ? event.target : _fr0st_query.default.closest(event.target, selector)[0]) || (event.target === this.#slider || _fr0st_query.default.hasDescendent(this.#slider, event.target) ? this.#slider : null);
@@ -445,7 +445,7 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 				if (this.#drag) _fr0st_query.default.triggerEvent(this.node, "slide.ui.slider");
 				if (!this.#drag) return false;
 			};
-			const moveEvent = (event) => {
+			const moveHandler = (event) => {
 				if (!this.#drag) return;
 				if (_fr0st_query.default.is(this.node, ":disabled") || _fr0st_query.default.getProperty(this.node, "readOnly")) {
 					this.#cancelDrag();
@@ -461,7 +461,7 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 					end: this.#values[1]
 				} : this.#values[0] });
 			};
-			const upEvent = (event) => {
+			const upHandler = (event) => {
 				if (event.type === "touchcancel") {
 					this.#cancelDrag();
 					return;
@@ -485,12 +485,12 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 					} : this.#values[0] });
 				}
 			};
-			const dragEvent = _fr0st_query.default.mouseDragFactory(downEvent, moveEvent, upEvent, {
+			const dragHandler = _fr0st_query.default.mouseDragFactory(downHandler, moveHandler, upHandler, {
 				debounce: false,
 				passive: false,
 				preventDefault: false
 			});
-			_fr0st_query.default.addEvent(this.#container, "mousedown.ui.slider touchstart.ui.slider", dragEvent);
+			_fr0st_query.default.addEvent(this.#container, "mousedown.ui.slider touchstart.ui.slider", dragHandler);
 			this.#blurHandler = () => this.#cancelDrag();
 			_fr0st_query.default.addEvent(window, "blur.ui.slider", this.#blurHandler);
 			_fr0st_query.default.addEvent(this.#container, "keydown.ui.slider", (event) => {
