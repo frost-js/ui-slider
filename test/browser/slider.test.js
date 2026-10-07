@@ -76,6 +76,52 @@ test.describe('Slider', () => {
             await expect(page.locator('#slider')).toHaveValue('3.5');
         });
 
+        test('rejects non-element arguments without disturbing an existing instance', async ({ page }) => {
+            const state = await page.evaluate(() => {
+                const node = $.findOne('#slider');
+                const instance = UI.Slider.init(node);
+                const html = $.getHtml(document.body);
+                const errors = [];
+
+                for (const [name, argument] of [
+                    ['null', null],
+                    ['undefined', undefined],
+                    ['selector', '#slider'],
+                    ['malformed selector', '['],
+                    ['array', [node]],
+                    ['QuerySet', $('#slider')],
+                    ['document', document],
+                    ['text node', document.createTextNode('text')],
+                ]) {
+                    for (const [method, init] of [
+                        ['constructor', (node) => new UI.Slider(node)],
+                        ['init', (node) => UI.Slider.init(node)],
+                    ]) {
+                        let message = null;
+
+                        try {
+                            init(argument);
+                        } catch (error) {
+                            message = `${error.name}: ${error.message}`;
+                        }
+
+                        errors.push({ name, method, message });
+                    }
+                }
+
+                return {
+                    errors,
+                    unchanged: $.getHtml(document.body) === html &&
+                        $.getData(node, UI.Slider.DATA_KEY) === instance,
+                };
+            });
+
+            for (const { name, method, message } of state.errors) {
+                expect(message, `${name} (${method})`).toBe('TypeError: Slider must be created on an input element.');
+            }
+            expect(state.unchanged).toBe(true);
+        });
+
         test('rejects non-input nodes without registering an instance', async ({ page }) => {
             await expect(page.evaluate(() => UI.Slider.init($.findOne('#outside')))).rejects.toThrow(
                 'Slider must be created on an input element.',
