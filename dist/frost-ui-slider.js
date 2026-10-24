@@ -295,7 +295,7 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 		dispose() {
 			if (!this.node) return;
 			this.#observer?.disconnect();
-			for (const timer of this.#resetTimers) clearTimeout(timer);
+			for (const timer of this.#resetTimers) window.clearTimeout(timer);
 			this.#resetTimers.clear();
 			this.#drag = null;
 			this.#tooltipTriggers.clear();
@@ -374,7 +374,7 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 				}
 			};
 			this.listen(this.node, "input.ui.slider change.ui.slider", this.#synchronizeHandler);
-			this.#observer = new MutationObserver(() => {
+			this.#observer = new window.MutationObserver(() => {
 				if (this.node) this.#refreshState();
 			});
 			this.#observer.observe(this.node, {
@@ -392,7 +392,7 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 			});
 			this.#form = _fr0st_query.default.getProperty(this.node, "form");
 			if (this.#form) this.listen(this.#form, "reset.ui.slider", (event) => {
-				const timer = setTimeout(() => {
+				const timer = window.setTimeout(() => {
 					this.#resetTimers.delete(timer);
 					if (this.node && !event.defaultPrevented) this.#synchronizeHandler();
 				}, 0);

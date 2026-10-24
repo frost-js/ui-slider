@@ -263,7 +263,7 @@ var Slider = class extends BaseComponent {
 	dispose() {
 		if (!this.node) return;
 		this.#observer?.disconnect();
-		for (const timer of this.#resetTimers) clearTimeout(timer);
+		for (const timer of this.#resetTimers) window.clearTimeout(timer);
 		this.#resetTimers.clear();
 		this.#drag = null;
 		this.#tooltipTriggers.clear();
@@ -342,7 +342,7 @@ var Slider = class extends BaseComponent {
 			}
 		};
 		this.listen(this.node, "input.ui.slider change.ui.slider", this.#synchronizeHandler);
-		this.#observer = new MutationObserver(() => {
+		this.#observer = new window.MutationObserver(() => {
 			if (this.node) this.#refreshState();
 		});
 		this.#observer.observe(this.node, {
@@ -360,7 +360,7 @@ var Slider = class extends BaseComponent {
 		});
 		this.#form = $.getProperty(this.node, "form");
 		if (this.#form) this.listen(this.#form, "reset.ui.slider", (event) => {
-			const timer = setTimeout(() => {
+			const timer = window.setTimeout(() => {
 				this.#resetTimers.delete(timer);
 				if (this.node && !event.defaultPrevented) this.#synchronizeHandler();
 			}, 0);

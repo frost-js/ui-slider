@@ -245,7 +245,7 @@ export default class Slider extends BaseComponent {
         this.#observer?.disconnect();
 
         for (const timer of this.#resetTimers) {
-            clearTimeout(timer);
+            window.clearTimeout(timer);
         }
 
         this.#resetTimers.clear();
@@ -355,7 +355,7 @@ export default class Slider extends BaseComponent {
 
         this.listen(this.node, 'input.ui.slider change.ui.slider', this.#synchronizeHandler);
 
-        this.#observer = new MutationObserver(() => {
+        this.#observer = new window.MutationObserver(() => {
             if (this.node) {
                 this.#refreshState();
             }
@@ -377,7 +377,7 @@ export default class Slider extends BaseComponent {
 
         if (this.#form) {
             this.listen(this.#form, 'reset.ui.slider', (event) => {
-                const timer = setTimeout(() => {
+                const timer = window.setTimeout(() => {
                     this.#resetTimers.delete(timer);
 
                     if (this.node && !event.defaultPrevented) {
