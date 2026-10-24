@@ -12,9 +12,7 @@ export default defineConfig({
     projects: [
         {
             name: 'coverage',
-            use: {
-                browserName: 'chromium',
-            },
+            use: { browserName: 'chromium' },
         },
     ],
     reporter: [
