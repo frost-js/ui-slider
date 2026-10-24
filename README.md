@@ -331,15 +331,6 @@ UI follows the system color scheme by default. Set `data-ui-theme="light"` or `d
 
 Direction is inherited from the document or an ancestor. An input's own `dir` is copied to its generated container at initialization. Horizontal RTL reverses the value axis once, and `reversed: true` reverses it again. Vertical value direction depends on `reversed`, not RTL. Initialize after choosing the layout direction.
 
-## Migrating from 3.x
-
-- Use Frost UI 4 and fQuery 5. The package root now resolves to built ESM; browser consumers can continue using the UMD filenames and `UI.Slider`.
-- Replace imports from `src/prototype/*` and access to underscore internals with the public API. Component state is private and resolved options are frozen.
-- Build tooling uses Vite and requires Node.js `^20.19.0 || ^22.13.0 || >=24`. The package does not advertise CommonJS `require()` support.
-- Values now normalize relative to `min`, remain within bounds after rounding, retain zero ticks, and support fixed bounds and shifted logarithmic ranges. Range endpoints are ordered. Invalid options use fallbacks and clamping; failed initialization is cleaned up.
-- Review change listeners: initialization and setters emit change when they alter the serialized value; native synchronization and reset do not add another change event. Pointer preview and committed values are distinct.
-- The old light/dark, methods, and events demos are consolidated in [demo/index.html](./demo/index.html).
-
 ## Development
 
 Install dependencies with `npm ci`, then install Playwright browsers with `npx playwright install --with-deps`.
