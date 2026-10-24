@@ -256,7 +256,7 @@ var Slider = class extends BaseComponent {
 	* Disables the input and stops any active gesture.
 	*/
 	disable() {
-		$.setProperty(this.node, { disabled: true });
+		$.setAttribute(this.node, { disabled: true });
 		this.#refreshState();
 	}
 	/** @inheritdoc */
@@ -295,7 +295,7 @@ var Slider = class extends BaseComponent {
 	* Enables the input and generated handles.
 	*/
 	enable() {
-		$.setProperty(this.node, { disabled: false });
+		$.removeAttribute(this.node, "disabled");
 		this.#refreshState();
 	}
 	/**

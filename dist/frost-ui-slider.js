@@ -288,7 +288,7 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 		* Disables the input and stops any active gesture.
 		*/
 		disable() {
-			_fr0st_query.default.setProperty(this.node, { disabled: true });
+			_fr0st_query.default.setAttribute(this.node, { disabled: true });
 			this.#refreshState();
 		}
 		/** @inheritdoc */
@@ -327,7 +327,7 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 		* Enables the input and generated handles.
 		*/
 		enable() {
-			_fr0st_query.default.setProperty(this.node, { disabled: false });
+			_fr0st_query.default.removeAttribute(this.node, "disabled");
 			this.#refreshState();
 		}
 		/**

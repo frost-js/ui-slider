@@ -232,7 +232,7 @@ export default class Slider extends BaseComponent {
      * Disables the input and stops any active gesture.
      */
     disable() {
-        $.setProperty(this.node, { disabled: true });
+        $.setAttribute(this.node, { disabled: true });
         this.#refreshState();
     }
 
@@ -296,7 +296,7 @@ export default class Slider extends BaseComponent {
      * Enables the input and generated handles.
      */
     enable() {
-        $.setProperty(this.node, { disabled: false });
+        $.removeAttribute(this.node, 'disabled');
         this.#refreshState();
     }
 
