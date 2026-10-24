@@ -1,11 +1,11 @@
 # Frost UI Slider
 
-[![CI](https://github.com/elusivecodes/FrostUI-Slider/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/elusivecodes/FrostUI-Slider/actions/workflows/ci.yml)
-[![codecov](https://codecov.io/gh/elusivecodes/FrostUI-Slider/branch/main/graph/badge.svg)](https://codecov.io/gh/elusivecodes/FrostUI-Slider)
+[![CI](https://github.com/frost-js/ui-slider/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/frost-js/ui-slider/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/frost-js/ui-slider/branch/main/graph/badge.svg)](https://codecov.io/gh/frost-js/ui-slider)
 [![npm version](https://img.shields.io/npm/v/%40fr0st%2Fui-slider?style=flat-square)](https://www.npmjs.com/package/@fr0st/ui-slider)
 [![npm downloads](https://img.shields.io/npm/dm/%40fr0st%2Fui-slider?style=flat-square)](https://www.npmjs.com/package/@fr0st/ui-slider)
-[![JS gzip size](https://img.badgesize.io/elusivecodes/FrostUI-Slider/main/dist/frost-ui-slider.min.js?compression=gzip&label=JS%20gzip%20size&style=flat-square)](https://github.com/elusivecodes/FrostUI-Slider/blob/main/dist/frost-ui-slider.min.js)
-[![license](https://img.shields.io/github/license/elusivecodes/FrostUI-Slider?style=flat-square)](./LICENSE)
+[![JS gzip size](https://img.badgesize.io/frost-js/ui-slider/main/dist/frost-ui-slider.min.js?compression=gzip&label=JS%20gzip%20size&style=flat-square)](https://github.com/frost-js/ui-slider/blob/main/dist/frost-ui-slider.min.js)
+[![license](https://img.shields.io/github/license/frost-js/ui-slider?style=flat-square)](./LICENSE)
 
 Single and range sliders for Frost UI with ticks, tooltips, logarithmic scales, keyboard controls, and native form values.
 
