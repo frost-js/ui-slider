@@ -4,7 +4,7 @@
   (global = typeof globalThis !== 'undefined' ? globalThis : global || self, factory((global.UI = global.UI || {}), global.UI,global.fQuery));
 })(this, function(exports, _fr0st_ui, _fr0st_query) {
 Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
-//#region \0rolldown/runtime.js
+// \0rolldown/runtime.js
 	var __create = Object.create;
 	var __defProp = Object.defineProperty;
 	var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -30,10 +30,9 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 		enumerable: true
 	}) : target, mod));
 
-//#endregion
 _fr0st_query = __toESM(_fr0st_query, 1);
 
-//#region src/helpers.js
+// src/helpers.js
 /**
 	* Rounds a bounded value to a min-anchored step while keeping endpoints reachable.
 	* @param {number} value The bounded value.
@@ -96,8 +95,7 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 		return number > 0 ? number : fallback;
 	}
 
-//#endregion
-//#region src/slider.js
+// src/slider.js
 	var window = _fr0st_query.default.getWindow();
 	var ariaAttributes = [
 		"aria-describedby",
@@ -877,12 +875,10 @@ _fr0st_query = __toESM(_fr0st_query, 1);
 		}
 	};
 
-//#endregion
-//#region src/index.js
+// src/index.js
 	(0, _fr0st_ui.initComponent)("slider", Slider);
 	var src_default = Slider;
 
-//#endregion
 exports.Slider = src_default;
 });
 //# sourceMappingURL=frost-ui-slider.js.map

@@ -1,7 +1,7 @@
 import { BaseComponent, Tooltip, getPosition, initComponent } from "@fr0st/ui";
 import $ from "@fr0st/query";
 
-//#region src/helpers.js
+// src/helpers.js
 /**
 * Rounds a bounded value to a min-anchored step while keeping endpoints reachable.
 * @param {number} value The bounded value.
@@ -64,8 +64,7 @@ function parsePositiveNumber(value, fallback) {
 	return number > 0 ? number : fallback;
 }
 
-//#endregion
-//#region src/slider.js
+// src/slider.js
 var window = $.getWindow();
 var ariaAttributes = [
 	"aria-describedby",
@@ -845,11 +844,9 @@ var Slider = class extends BaseComponent {
 	}
 };
 
-//#endregion
-//#region src/index.js
+// src/index.js
 initComponent("slider", Slider);
 var src_default = Slider;
 
-//#endregion
 export { src_default as default };
 //# sourceMappingURL=frost-ui-slider.esm.js.map
