@@ -327,7 +327,7 @@ Frost UI follows the user's preferred color scheme by default. Set `data-ui-them
 
 Slider uses Frost UI's progress, background, border, focus-ring, positioning, and visibility utilities. Load the UI stylesheet; no separate Slider CSS is needed.
 
-UI follows the system color scheme by default. Set `data-ui-theme="light"` or `data-ui-theme="dark"` on the document to choose explicitly. Tooltips are appended to the document body, so a document-level theme also covers them.
+Tooltips are appended to the document body, so a document-level theme also covers them.
 
 Direction is inherited from the document or an ancestor. An input's own `dir` is copied to its generated container at initialization. Horizontal RTL reverses the value axis once, and `reversed: true` reverses it again. Vertical value direction depends on `reversed`, not RTL. Initialize after choosing the layout direction.
 
